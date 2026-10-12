@@ -1,12 +1,15 @@
 import express from "express";
 import login from "./routes/users/login_route.js";
 import register from "./routes/users/register_route.js";
+import cors from "cors";
+
 import { connectDB } from "./config/db.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // middleware
+app.use(cors()); 
 app.use(express.json());
 
 // routes

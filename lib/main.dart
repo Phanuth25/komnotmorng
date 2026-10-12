@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:komnotmorng2/features/splash/splash_screen.dart';
+import 'package:komnotmorng2/viewmodels/register_vm.dart';
+import 'package:komnotmorng2/views/home_screen.dart';
+import 'package:komnotmorng2/views/login_screen.dart';
+import 'package:komnotmorng2/views/register_screen.dart';
 
 void main() {
   runApp(const MyApp());
+  Get.put(
+    RegisterViewModel(),
+  ); // Register the RegisterViewModel for dependency injection
 }
 
 class MyApp extends StatelessWidget {
@@ -11,7 +19,7 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
@@ -32,8 +40,14 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
+      initialRoute: '/SplashScreen',
+      getPages: [
+        GetPage(name: '/SplashScreen', page: () => const SplashScreen()),
+        GetPage(name: '/HomeScreen', page: () => const HomeScreen()),
+        GetPage(name: '/LoginScreen', page: () => const LoginScreen()),
+        GetPage(name: '/RegisterScreen', page: () => const RegisterScreen()),
+      ],
       home: const SplashScreen(),
     );
   }
 }
-

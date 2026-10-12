@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:komnotmorng2/viewmodels/register_vm.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -18,7 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirm = TextEditingController();
   bool _hidePassword = true;
   bool _hideConfirm = true;
-
+  final RegisterViewModel registerController = Get.find<RegisterViewModel>();
   @override
   void dispose() {
     _name.dispose();
@@ -79,19 +81,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _eye(bool hidden, VoidCallback onTap) {
     return IconButton(
-      icon: Icon(hidden
-          ? Icons.visibility_off_outlined
-          : Icons.visibility_outlined),
+      icon: Icon(
+        hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+      ),
       onPressed: onTap,
     );
   }
 
-  void _register() {
+  void _register() async {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState!.validate()) {
       // the server should hash it into users.password_hash.
       // role ('user'), status ('active') and timestamps use DB defaults.
       debugPrint('Register: ${_name.text.trim()} / ${_email.text.trim()}');
+      await registerController.register(
+        _name.text.trim(),
+        _email.text.trim(),
+        _password.text,
+      );
+      if (registerController.statusCode.value == '201') {
+        Get.snackbar(
+          'Success',
+          registerController.successMessage.value,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.shade400,
+          colorText: Colors.white,
+        );
+        Get.offNamed('/LoginScreen');
+      } else if (registerController.statusCode.value == '409') {
+        Get.snackbar(
+          'Email Already Exists',
+          registerController.errorMessage.value,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade400,
+          colorText: Colors.white,
+        );
+      }
+      else if (registerController.statusCode.value != '201' && registerController.statusCode.value != '409')  {
+        Get.snackbar(
+          'Error',
+          registerController.errorMessage.value,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade400,
+          colorText: Colors.white,
+        );
+      }
     }
   }
 
@@ -108,7 +142,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               width: 260,
               height: 260,
               decoration: const BoxDecoration(
-                  color: _lightBlue, shape: BoxShape.circle),
+                color: _lightBlue,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
           SafeArea(
@@ -152,8 +188,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                       validator: _validatePassword,
                       decoration: _field('Password').copyWith(
-                        suffixIcon: _eye(_hidePassword,
-                            () => setState(() => _hidePassword = !_hidePassword)),
+                        suffixIcon: _eye(
+                          _hidePassword,
+                          () => setState(() => _hidePassword = !_hidePassword),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -164,8 +202,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       validator: _validateConfirm,
                       onFieldSubmitted: (_) => _register(),
                       decoration: _field('Confirm password').copyWith(
-                        suffixIcon: _eye(_hideConfirm,
-                            () => setState(() => _hideConfirm = !_hideConfirm)),
+                        suffixIcon: _eye(
+                          _hideConfirm,
+                          () => setState(() => _hideConfirm = !_hideConfirm),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 28),
@@ -181,9 +221,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Create account',
-                                style: TextStyle(
-                                    fontSize: 17, fontWeight: FontWeight.w600)),
+                            Text(
+                              'Create account',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                             SizedBox(width: 8),
                             Icon(Icons.arrow_forward_rounded, size: 20),
                           ],

@@ -177,7 +177,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 28),
                     Center(
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Get.toNamed('/RegisterScreen');
+                        },
                         style: TextButton.styleFrom(foregroundColor: _green),
                         child: const Text('Create a new account'),
                       ),
