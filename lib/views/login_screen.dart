@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:komnotmorng2/viewmodels/login_vm.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
   bool _hidden = true;
   bool _remember = true;
+  final LoginViewModel _loginViewModel = Get.put(LoginViewModel());
 
   @override
   void dispose() {
@@ -60,10 +62,31 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _signIn() {
+  void _signIn() async {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState!.validate()) {
       debugPrint('Sign in: ${_email.text.trim()}');
+      await _loginViewModel.login(_email.text.trim(), _password.text);
+      if (_loginViewModel.statusCode.value == '200') {
+        Get.snackbar(
+          'Login Successful',
+          _loginViewModel.successMessage.value,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.shade100,
+          colorText: Colors.green.shade900,
+        );
+        Future.delayed(const Duration(seconds: 1), () {
+          Get.toNamed('/HomeScreen');
+        });
+      } else {
+        Get.snackbar(
+          'Login Failed',
+          _loginViewModel.errorMessage.value,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.red.shade900,
+        );
+      }
     }
   }
 
