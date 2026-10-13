@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:komnotmorng2/data/local_storage.dart';
+import 'package:komnotmorng2/views/home_screen.dart';
 import 'package:komnotmorng2/views/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -16,11 +18,23 @@ class _SplashScreenState extends State<SplashScreen> {
     // Wait 2 seconds before opening the next screen.
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
+      LocalStorage.getEmail().then((email) {
+        if (email.isNotEmpty) {
+          // If email is found, navigate to the login screen.
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        } else {
+          // If no email is found, navigate to the login screen.
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        }
+      });
     });
   }
 

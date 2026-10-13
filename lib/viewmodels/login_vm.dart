@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:get/get.dart';
 import 'package:komnotmorng2/constants/api_constant.dart';
+import 'package:komnotmorng2/data/local_storage.dart';
 
 class LoginViewModel extends GetxController {
   final Dio dio = Dio();
@@ -26,6 +27,7 @@ class LoginViewModel extends GetxController {
         statusCode.value = response.statusCode.toString();
         debugPrint('User logged in successfully: ${response.data}');
         successMessage.value = response.data['message'] ?? 'Login successful';
+        await LocalStorage.saveEmail(email);
       }
     } on DioException catch (e) {
       statusCode.value = e.response?.statusCode.toString() ?? 'Unknown';

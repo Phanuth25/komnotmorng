@@ -1,15 +1,281 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+const blue = Color(0xFF6C7CF0);
+const green = Color(0xFF9FE0B8);
+const grey = Color(0xFFE3E4EA);
+
+class Task {
+  final String title, time;
+  final Color color;
+  bool done;
+  Task(this.title, this.time, this.color, [this.done = false]);
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int tab = 0;
+  final tabs = ['All Tasks', 'Personal', 'Work'];
+  final tasks = [
+    Task('Breakfast with Alice', '9:30–10:30 AM', green, true),
+    Task('Prepare daily meeting notes', '11–11:30 AM', blue),
+    Task('Prepare daily meeting notes', '1–2 PM', grey),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    // final width = MediaQuery.of(context).size.width;
+    final now = DateTime.now();
+    final dayNumber = DateFormat('d'); // "12"
+    final dayName = DateFormat('EEEE'); // "Tuesday"
+    final MonthName = DateFormat('MMMM'); // "June"
+    final text =
+        'Today is ${dayName.format(now)}, ${dayNumber.format(now)} ${MonthName.format(now)}';
+    return Scaffold(
+      extendBody: true,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.center,
+            colors: [Color(0xFFD9DEFF), Color(0xFFF7F8FC)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: double.infinity),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                children: [
+                  // Search + avatar
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const CircleAvatar(
+                        backgroundColor: Colors.white,
+                        child: Icon(Icons.search, color: Colors.black87),
+                      ),
+                      const SizedBox(width: 10),
+                      Stack(
+                        children: [
+                          const CircleAvatar(
+                            backgroundColor: Colors.brown,
+                            child: Icon(Icons.person, color: Colors.white),
+                          ),
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: CircleAvatar(
+                              radius: 4,
+                              backgroundColor: Colors.deepOrange,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                   Text(
+                    text,
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Morning, Jonas 👋',
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Tabs
+                  Row(
+                    children: [
+                      for (int i = 0; i < tabs.length; i++)
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => tab = i),
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: tab == i
+                                    ? Colors.white
+                                    : Colors.white.withOpacity(.4),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                tabs[i],
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: tab == i
+                                      ? Colors.black
+                                      : Colors.black38,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    '6 tasks for today',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Stats card
+                  card(
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 52,
+                          height: 52,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: const [
+                              CircularProgressIndicator(
+                                value: 4 / 6,
+                                strokeWidth: 7,
+                                color: blue,
+                                backgroundColor: grey,
+                              ),
+                              CircularProgressIndicator(
+                                value: 3 / 6,
+                                strokeWidth: 7,
+                                color: green,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        stat(green, '3 tasks', 'completed'),
+                        const Spacer(),
+                        stat(blue, '1 task', 'in progress'),
+                        const Spacer(),
+                        stat(grey, '2 tasks', 'left to do'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Task list
+                  for (final t in tasks)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: card(
+                        Row(
+                          children: [
+                            Container(width: 4, height: 36, color: t.color),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    t.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Text(
+                                    t.time,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black45,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => setState(() => t.done = !t.done),
+                              child: Icon(
+                                t.done
+                                    ? Icons.check_circle
+                                    : Icons.radio_button_unchecked,
+                                color: blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+
+      // Center "+" button
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        backgroundColor: blue,
+        foregroundColor: Colors.white,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add, size: 30),
+      ),
+
+      // Bottom nav
+      bottomNavigationBar: BottomAppBar(
+        color: Colors.white,
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            nav(Icons.home_rounded, 'Home', true),
+            nav(Icons.calendar_today_outlined, 'Calendar'),
+            const SizedBox(width: 48),
+            nav(Icons.auto_awesome_outlined, 'Assistant'),
+            nav(Icons.bar_chart_rounded, 'Statistics'),
+          ],
+        ),
+      ),
+    );
   }
+
+  Widget card(Widget child) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: child,
+  );
+
+  Widget stat(Color c, String a, String b) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          CircleAvatar(radius: 4, backgroundColor: c),
+          const SizedBox(width: 4),
+          Text(
+            a,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+      Text(b, style: const TextStyle(fontSize: 10, color: Colors.black45)),
+    ],
+  );
+
+  Widget nav(IconData icon, String label, [bool active = false]) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, color: active ? blue : Colors.black45),
+      Text(
+        label,
+        style: TextStyle(fontSize: 11, color: active ? blue : Colors.black45),
+      ),
+    ],
+  );
 }
