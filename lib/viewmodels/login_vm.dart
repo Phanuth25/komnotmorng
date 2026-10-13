@@ -10,7 +10,7 @@ class LoginViewModel extends GetxController {
   final isLoading = false.obs;
   final errorMessage = ''.obs;
   final successMessage = ''.obs;
-  final user = ''.obs;
+  final userName = ''.obs;
   final statusCode = ''.obs;
   Future<void> login(String email, String password) async {
     try {
@@ -27,6 +27,7 @@ class LoginViewModel extends GetxController {
         statusCode.value = response.statusCode.toString();
         debugPrint('User logged in successfully: ${response.data}');
         successMessage.value = response.data['message'] ?? 'Login successful';
+        userName.value = response.data['user']['name'] ?? '';
         await LocalStorage.saveEmail(email);
       }
     } on DioException catch (e) {
@@ -40,6 +41,15 @@ class LoginViewModel extends GetxController {
       errorMessage.value = e.toString();
     } finally {
       isLoading.value = false;
+    }
+  }
+  Future<void> logout() async {
+    try {
+      await LocalStorage.removeEmail();
+      debugPrint('User logged out successfully');
+      Get.toNamed('/LoginScreen'); // Navigate to the login screen
+    } catch (e) {
+      debugPrint('Error during logout: $e');
     }
   }
 }

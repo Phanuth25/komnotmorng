@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 import 'package:intl/intl.dart';
+import 'package:komnotmorng2/viewmodels/login_vm.dart';
 
 const blue = Color(0xFF6C7CF0);
 const green = Color(0xFF9FE0B8);
@@ -26,6 +29,11 @@ class _HomeScreenState extends State<HomeScreen> {
     Task('Prepare daily meeting notes', '11–11:30 AM', blue),
     Task('Prepare daily meeting notes', '1–2 PM', grey),
   ];
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  void openDrawer() {
+    // Implement your drawer opening logic here
+    _scaffoldKey.currentState?.openDrawer();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +44,30 @@ class _HomeScreenState extends State<HomeScreen> {
     final MonthName = DateFormat('MMMM'); // "June"
     final text =
         'Today is ${dayName.format(now)}, ${dayNumber.format(now)} ${MonthName.format(now)}';
+    final LoginViewModel loginViewModel = LoginViewModel();
+    final name =
+        loginViewModel.userName.value; // Access the userName from the ViewModel
+
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text('Drawer Header'),
+            ),
+            ListTile(
+              title: const Text('log out'),
+              onTap: () {
+                // Handle item 1 tap
+                loginViewModel.logout(); // Call the logout method from the ViewModel
+              },
+            ),
+          ],
+        ),
+      ),
       extendBody: true,
       body: Container(
         decoration: const BoxDecoration(
@@ -62,32 +93,33 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Icon(Icons.search, color: Colors.black87),
                       ),
                       const SizedBox(width: 10),
-                      Stack(
-                        children: [
-                          const CircleAvatar(
-                            backgroundColor: Colors.brown,
-                            child: Icon(Icons.person, color: Colors.white),
-                          ),
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: CircleAvatar(
-                              radius: 4,
-                              backgroundColor: Colors.deepOrange,
+                      InkWell(
+                        onTap: () =>
+                            openDrawer(), // Call the openDrawer function when tapped
+                        child: Stack(
+                          children: [
+                            const CircleAvatar(
+                              backgroundColor: Colors.brown,
+                              child: Icon(Icons.person, color: Colors.white),
                             ),
-                          ),
-                        ],
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: CircleAvatar(
+                                radius: 4,
+                                backgroundColor: Colors.deepOrange,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                   Text(
-                    text,
-                    style: TextStyle(color: Colors.black54),
-                  ),
+                  Text(text, style: TextStyle(color: Colors.black54)),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Morning, Jonas 👋',
+                  Text(
+                    'Morning, $name 👋',
                     style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 24),
