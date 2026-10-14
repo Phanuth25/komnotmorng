@@ -19,6 +19,7 @@ class LoginViewModel extends GetxController {
       errorMessage.value = '';
       successMessage.value = '';
       statusCode.value = '';
+      userName.value = '';
       final response = await dio.post(
         "${ApiConstants.baseUrl}/login",
         data: {'email': email, 'password': password},
@@ -27,7 +28,9 @@ class LoginViewModel extends GetxController {
         statusCode.value = response.statusCode.toString();
         debugPrint('User logged in successfully: ${response.data}');
         successMessage.value = response.data['message'] ?? 'Login successful';
-        userName.value = response.data['user']['name'] ?? '';
+        debugPrint('User name: ${userName.value}');
+        userName.value = response.data['data'] ?? '';
+        debugPrint('User name: ${userName.value}');
         await LocalStorage.saveEmail(email);
       }
     } on DioException catch (e) {

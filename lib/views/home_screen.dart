@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:intl/intl.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
+import 'package:komnotmorng2/viewmodels/schedule_vm.dart';
 
 const blue = Color(0xFF6C7CF0);
 const green = Color(0xFF9FE0B8);
@@ -44,9 +44,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final MonthName = DateFormat('MMMM'); // "June"
     final text =
         'Today is ${dayName.format(now)}, ${dayNumber.format(now)} ${MonthName.format(now)}';
-    final LoginViewModel loginViewModel = LoginViewModel();
+    final LoginViewModel loginViewModel = Get.find<LoginViewModel>(); // Access the LoginViewModel instance
+    final ScheduleVm scheduleVm = Get.find<ScheduleVm>(); // Access the ScheduleVm instance
     final name =
         loginViewModel.userName.value; // Access the userName from the ViewModel
+    debugPrint(
+      'User name in HomeScreen: $name',
+    ); // Debug print to check the value of name
 
     return Scaffold(
       key: _scaffoldKey,
@@ -62,7 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('log out'),
               onTap: () {
                 // Handle item 1 tap
-                loginViewModel.logout(); // Call the logout method from the ViewModel
+                loginViewModel
+                    .logout(); // Call the logout method from the ViewModel
               },
             ),
           ],
@@ -118,10 +123,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 24),
                   Text(text, style: TextStyle(color: Colors.black54)),
                   const SizedBox(height: 4),
-                  Text(
-                    'Morning, $name 👋',
-                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w500),
-                  ),
+                  Obx(() {
+                    // Use Obx to listen for changes in userName
+                    final name = loginViewModel.userName.value;
+                    return Text(
+                      'Morning, $name 👋',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 24),
 
                   // Tabs
@@ -248,7 +260,9 @@ class _HomeScreenState extends State<HomeScreen> {
       // Center "+" button
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          Get.toNamed('/ScheduleScreen'); // Navigate to ScheduleScreen using GetX
+        },
         backgroundColor: blue,
         foregroundColor: Colors.white,
         shape: const CircleBorder(),

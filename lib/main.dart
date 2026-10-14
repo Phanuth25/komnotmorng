@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:komnotmorng2/features/splash/splash_screen.dart';
+import 'package:komnotmorng2/viewmodels/login_vm.dart';
 import 'package:komnotmorng2/viewmodels/register_vm.dart';
+import 'package:komnotmorng2/viewmodels/schedule_vm.dart';
 import 'package:komnotmorng2/views/home_screen.dart';
 import 'package:komnotmorng2/views/login_screen.dart';
 import 'package:komnotmorng2/views/register_screen.dart';
+import 'package:komnotmorng2/views/schedule_screen.dart';
 
 void main() {
   runApp(const MyApp());
   Get.put(
     RegisterViewModel(),
   ); // Register the RegisterViewModel for dependency injection
+  Get.put(
+    LoginViewModel(),
+  ); // Register the LoginViewModel for dependency injection
+  Get.put(ScheduleVm()); // Register the ScheduleVm for dependency injection
 }
 
 class MyApp extends StatelessWidget {
@@ -46,6 +53,7 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/HomeScreen', page: () => const HomeScreen()),
         GetPage(name: '/LoginScreen', page: () => const LoginScreen()),
         GetPage(name: '/RegisterScreen', page: () => const RegisterScreen()),
+        GetPage(name: '/ScheduleScreen', page: () => const ScheduleScreen()),
       ],
       home: const SplashScreen(),
     );
