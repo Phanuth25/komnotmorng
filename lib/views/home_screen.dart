@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
-import 'package:komnotmorng2/viewmodels/schedule_vm.dart';
 
 const blue = Color(0xFF6C7CF0);
 const green = Color(0xFF9FE0B8);
@@ -41,11 +40,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final now = DateTime.now();
     final dayNumber = DateFormat('d'); // "12"
     final dayName = DateFormat('EEEE'); // "Tuesday"
-    final MonthName = DateFormat('MMMM'); // "June"
+    final monthName = DateFormat('MMMM'); // "June"
     final text =
-        'Today is ${dayName.format(now)}, ${dayNumber.format(now)} ${MonthName.format(now)}';
+        'Today is ${dayName.format(now)}, ${dayNumber.format(now)} ${monthName.format(now)}';
     final LoginViewModel loginViewModel = Get.find<LoginViewModel>(); // Access the LoginViewModel instance
-    final ScheduleVm scheduleVm = Get.find<ScheduleVm>(); // Access the ScheduleVm instance
     final name =
         loginViewModel.userName.value; // Access the userName from the ViewModel
     debugPrint(
@@ -149,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               decoration: BoxDecoration(
                                 color: tab == i
                                     ? Colors.white
-                                    : Colors.white.withOpacity(.4),
+                                    : Colors.white.withValues(alpha: 0.4),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(

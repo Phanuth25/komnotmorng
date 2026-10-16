@@ -1,6 +1,7 @@
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:komnotmorng2/viewmodels/schedule_vm.dart';
 
 const sky = Color(0xFF29ABE2);
@@ -38,7 +39,27 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     if (scroll.hasClients) scroll.jumpTo(0);
   }
 
-  bool remind = true, repeat = false;
+  String convertTo24Hour(String time) {
+    final parsedTime = DateFormat('h:mm a').parse(time);
+    return DateFormat('HH:mm:ss').format(parsedTime);
+  }
+
+  bool remind = false, repeat = false;
+
+  // Category: shows the name, uses the id (id -> name from the categories table)
+  int? categoryId;
+  final categories = {
+    1: 'Study',
+    2: 'Work',
+    3: 'Personal',
+    4: 'Exercise',
+    5: 'Health',
+    6: 'Shopping',
+    7: 'Family',
+    8: 'Finance',
+    9: 'Entertainment',
+    10: 'Other',
+  };
 
   final formKey = GlobalKey<FormState>();
   final name = TextEditingController();
@@ -111,6 +132,39 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   },
                 ),
 
+                label('CATEGORY'),
+                DropdownButtonFormField<int>(
+                  hint: const Text(
+                    'Select category',
+                    style: TextStyle(fontSize: 12, color: Colors.black45),
+                  ),
+                  validator: (v) => v == null ? 'Please select a category' : null,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    enabledBorder: border,
+                    focusedBorder: border,
+                    errorBorder: border,
+                    focusedErrorBorder: border,
+                  ),
+                  // visible text = name, stored value = id
+                  items: [
+                    for (final c in categories.entries)
+                      DropdownMenuItem<int>(
+                        value: c.key,
+                        child: Text(
+                          c.value,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => categoryId = v),
+                ),
+
                 Row(
                   children: [
                     Expanded(
@@ -154,12 +208,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 ),
 
                 label('REPEAT'),
-                switchRow(
-                  'Daily',
-                  repeat,
-                  Colors.green,
-                  (v) => setState(() => repeat = v),
-                ),
+                switchRow('Daily', repeat, Colors.green, (v) {
+                  setState(() => repeat = v);
+                }),
 
                 const SizedBox(height: 24),
 
@@ -173,11 +224,26 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           const SnackBar(content: Text('Task created')),
                         );
                       }
+                      final startTime = convertTo24Hour(start.text);
+                      final endTime = convertTo24Hour(end.text);
+                      debugPrint(
+                        'Creating task: ${name.text}, ${date.toIso8601String().substring(0, 10)}, $startTime, $endTime, $remind, $repeat',
+                      );
+                      if (name.text.isEmpty ||
+                          start.text.isEmpty ||
+                          end.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please fill in all required fields'),
+                          ),
+                        );
+                        return;
+                      }
                       scheduleVm.createTask(
                         name.text,
                         date.toIso8601String().substring(0, 10),
-                        start.text,
-                        end.text,
+                        startTime,
+                        endTime,
                         remind,
                         repeat,
                       );
@@ -297,24 +363,29 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     required TextEditingController controller,
     String? Function(String?)? validator,
     bool time = false,
-  }) => TextFormField(
-    controller: controller,
-    validator: validator,
-    readOnly: time, // time fields open the time dialog instead of typing here
-    onTap: time ? () => pickTime(controller) : null,
-    decoration: InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(fontSize: 12, color: Colors.black45),
-      suffixIcon: time ? const Icon(Icons.access_time, size: 18) : null,
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      enabledBorder: border,
-      focusedBorder: border,
-      errorBorder: border,
-      focusedErrorBorder: border,
-    ),
-  );
+  }) {
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      readOnly: time, // time fields open the time dialog instead of typing here
+      onTap: time ? () => pickTime(controller) : null,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 12, color: Colors.black45),
+        suffixIcon: time ? const Icon(Icons.access_time, size: 18) : null,
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        enabledBorder: border,
+        focusedBorder: border,
+        errorBorder: border,
+        focusedErrorBorder: border,
+      ),
+    );
+  }
 
   final border = OutlineInputBorder(
     borderRadius: BorderRadius.circular(14),
@@ -326,19 +397,24 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     bool value,
     Color color,
     Function(bool) onChanged,
-  ) => Container(
-    padding: const EdgeInsets.only(left: 16, right: 8),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFEAEAEA)),
-    ),
-    child: Row(
-      children: [
-        Text(text, style: const TextStyle(fontSize: 12, color: Colors.black45)),
-        const Spacer(),
-        Switch(value: value, activeColor: color, onChanged: onChanged),
-      ],
-    ),
-  );
+  ) {
+    return Container(
+      padding: const EdgeInsets.only(left: 16, right: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEAEAEA)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            text,
+            style: const TextStyle(fontSize: 12, color: Colors.black45),
+          ),
+          const Spacer(),
+          Switch(value: value, activeThumbColor: color, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
 }
