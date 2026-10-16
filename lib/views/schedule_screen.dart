@@ -2,6 +2,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:komnotmorng2/viewmodels/categories/select_cate_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedule_vm.dart';
 
 const sky = Color(0xFF29ABE2);
@@ -17,7 +18,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   late final scroll = ScrollController(
     initialScrollOffset: (date.day - 1) * 52.0,
   );
-
+  final SelectCateVM selectCateVm = Get.find<SelectCateVM>();
   final months = [
     'January',
     'February',
@@ -88,6 +89,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   String? notEmpty(String? v) => (v == null || v.isEmpty) ? 'Required' : null;
 
   @override
+  void initState() {
+    selectCateVm.fetchCategories();
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final ScheduleVm scheduleVm =
         Get.find<ScheduleVm>(); // Access the ScheduleVm instance
@@ -116,7 +123,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             key: formKey,
             child: ListView(
               padding: const EdgeInsets.all(20),
-              children: [
+              children: <Widget>[
                 dateStrip(),
 
                 label('TASK NAME'),
@@ -133,36 +140,39 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 ),
 
                 label('CATEGORY'),
-                DropdownButtonFormField<int>(
-                  hint: const Text(
-                    'Select category',
-                    style: TextStyle(fontSize: 12, color: Colors.black45),
-                  ),
-                  validator: (v) => v == null ? 'Please select a category' : null,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                Obx(
+                  () => DropdownButtonFormField<int>(
+                    hint: const Text(
+                      'Select category',
+                      style: TextStyle(fontSize: 12, color: Colors.black45),
                     ),
-                    enabledBorder: border,
-                    focusedBorder: border,
-                    errorBorder: border,
-                    focusedErrorBorder: border,
-                  ),
-                  // visible text = name, stored value = id
-                  items: [
-                    for (final c in categories.entries)
-                      DropdownMenuItem<int>(
-                        value: c.key,
-                        child: Text(
-                          c.value,
-                          style: const TextStyle(fontSize: 12),
-                        ),
+                    validator: (v) =>
+                        v == null ? 'Please select a category' : null,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
                       ),
-                  ],
-                  onChanged: (v) => setState(() => categoryId = v),
+                      enabledBorder: border,
+                      focusedBorder: border,
+                      errorBorder: border,
+                      focusedErrorBorder: border,
+                    ),
+                    // visible text = name, stored value = id
+                    items: [
+                      for (final c in selectCateVm.categories)
+                        DropdownMenuItem<int>(
+                          value: c.id,
+                          child: Text(
+                            c.name,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => categoryId = v),
+                  ),
                 ),
 
                 Row(

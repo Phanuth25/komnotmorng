@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:komnotmorng2/features/splash/splash_screen.dart';
+import 'package:komnotmorng2/viewmodels/categories/select_cate_vm.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
 import 'package:komnotmorng2/viewmodels/register_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedule_vm.dart';
@@ -17,7 +18,9 @@ void main() {
   Get.put(
     LoginViewModel(),
   ); // Register the LoginViewModel for dependency injection
-  Get.put(ScheduleVm()); // Register the ScheduleVm for dependency injection
+  Get.put(ScheduleVm());
+  Get.put(SelectCateVM());
+   // Register the ScheduleVm for dependency injection
 }
 
 class MyApp extends StatelessWidget {
