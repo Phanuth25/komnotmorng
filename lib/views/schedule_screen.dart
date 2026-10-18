@@ -1,7 +1,6 @@
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import 'package:komnotmorng2/viewmodels/categories/select_cate_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedule_vm.dart';
 
@@ -33,6 +32,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     'November',
     'December',
   ];
+
+  int toMinutes(TimeOfDay t) => t.hour * 60 + t.minute;
+
+  String? endValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Required';
+    final s = pickedTimes[start];
+    final e = pickedTimes[end];
+    if (s != null && e != null && toMinutes(e) == toMinutes(s)) {
+      return 'End time must be after start time';
+    }
+    return null;
+  }
+
   final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   void changeMonth(int step) {
@@ -40,15 +52,20 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     if (scroll.hasClients) scroll.jumpTo(0);
   }
 
-  String convertTo24Hour(String time) {
-    final parsedTime = DateFormat('h:mm a').parse(time);
-    return DateFormat('HH:mm:ss').format(parsedTime);
-  }
+  // FIX 3: build HH:mm:ss from the picked TimeOfDay instead of parsing
+  // the localized text (which breaks on 24h phones / non-English locales)
+  String to24h(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+
+  // Remembers the TimeOfDay picked for each time field
+  final Map<TextEditingController, TimeOfDay> pickedTimes = {};
 
   bool remind = false, repeat = false;
 
   // Category: shows the name, uses the id (id -> name from the categories table)
-  int? categoryId;
+  int? category_id;
+  String? priority;
+  final priorities = ['Low', 'Medium', 'High'];
   final categories = {
     1: 'Study',
     2: 'Work',
@@ -63,14 +80,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   };
 
   final formKey = GlobalKey<FormState>();
-  final name = TextEditingController();
+  final title = TextEditingController();
   final start = TextEditingController();
   final end = TextEditingController();
 
   @override
   void dispose() {
     scroll.dispose();
-    name.dispose();
+    title.dispose();
     start.dispose();
     end.dispose();
     super.dispose();
@@ -83,7 +100,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       initialTime: TimeOfDay.now(),
       initialEntryMode: TimePickerEntryMode.inputOnly,
     );
-    if (t != null && mounted) c.text = t.format(context);
+    if (t != null && mounted) {
+      pickedTimes[c] = t;
+      c.text = t.format(context);
+    }
   }
 
   String? notEmpty(String? v) => (v == null || v.isEmpty) ? 'Required' : null;
@@ -96,8 +116,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ScheduleVm scheduleVm =
-        Get.find<ScheduleVm>(); // Access the ScheduleVm instance
+    // FIX 4: use the registered instance, or create one if none exists
+    final ScheduleVm scheduleVm = Get.isRegistered<ScheduleVm>()
+        ? Get.find<ScheduleVm>()
+        : Get.put(ScheduleVm());
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
@@ -118,7 +140,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: const BoxConstraints(maxWidth: double.infinity),
           child: Form(
             key: formKey,
             child: ListView(
@@ -129,7 +151,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 label('TASK NAME'),
                 field(
                   'Mobile Design',
-                  controller: name,
+                  controller: title,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
                       return 'Please enter a task name';
@@ -171,7 +193,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           ),
                         ),
                     ],
-                    onChanged: (v) => setState(() => categoryId = v),
+                    onChanged: (v) => setState(() => category_id = v),
                   ),
                 ),
 
@@ -200,7 +222,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           field(
                             '03:00',
                             controller: end,
-                            validator: notEmpty,
+                            validator: endValidator,
                             time: true,
                           ),
                         ],
@@ -208,7 +230,33 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ),
                   ],
                 ),
-
+                label('PRIORITY'),
+                DropdownButtonFormField<String>(
+                  hint: const Text(
+                    'Select priority',
+                    style: TextStyle(fontSize: 12, color: Colors.black45),
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    enabledBorder: border,
+                    focusedBorder: border,
+                    errorBorder: border,
+                    focusedErrorBorder: border,
+                  ),
+                  items: [
+                    for (final p in priorities)
+                      DropdownMenuItem<String>(
+                        value: p.toLowerCase(),
+                        child: Text(p, style: const TextStyle(fontSize: 12)),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => priority = v),
+                ),
                 label('NOTIFICATION'),
                 switchRow(
                   'Remind Me',
@@ -227,41 +275,103 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 const SizedBox(height: 28),
                 SizedBox(
                   height: 50,
-                  child: FilledButton(
-                    onPressed: () {
-                      if (formKey.currentState!.validate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Task created')),
-                        );
-                      }
-                      final startTime = convertTo24Hour(start.text);
-                      final endTime = convertTo24Hour(end.text);
-                      debugPrint(
-                        'Creating task: ${name.text}, ${date.toIso8601String().substring(0, 10)}, $startTime, $endTime, $remind, $repeat',
-                      );
-                      if (name.text.isEmpty ||
-                          start.text.isEmpty ||
-                          end.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please fill in all required fields'),
-                          ),
-                        );
-                        return;
-                      }
-                      scheduleVm.createTask(
-                        name.text,
-                        date.toIso8601String().substring(0, 10),
-                        startTime,
-                        endTime,
-                        remind,
-                        repeat,
-                      );
-                    },
-                    style: FilledButton.styleFrom(backgroundColor: sky),
-                    child: const Text(
-                      'CREATE TASK',
-                      style: TextStyle(letterSpacing: 1, fontSize: 12),
+                  child: Obx(
+                    () => FilledButton(
+                      // disabled while the request is running (no double taps)
+                      onPressed: scheduleVm.isLoading.value
+                          ? null
+                          : () async {
+                              // FIX 2: stop here if the form is invalid
+                              if (!formKey.currentState!.validate()) return;
+
+                              final startTod = pickedTimes[start];
+                              final endTod = pickedTimes[end];
+                              if (startTod == null || endTod == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Please fill in all required fields',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              // Ask for confirmation if the task runs past midnight
+                              if (toMinutes(endTod) < toMinutes(startTod)) {
+                                final nextDate = date
+                                    .add(const Duration(days: 1))
+                                    .toIso8601String()
+                                    .substring(0, 10);
+
+                                final goOn = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text(
+                                      'This task ends tomorrow',
+                                    ),
+                                    content: Text(
+                                      'It starts at ${start.text} and ends at ${end.text} on $nextDate.\n\n'
+                                      'Is that correct?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: const Text('Edit times'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: const Text('Continue'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (goOn != true || !mounted) return;
+                              }
+                              final startTime = to24h(startTod);
+                              final endTime = to24h(endTod);
+                              debugPrint(
+                                'Creating task: ${title.text}, ${date.toIso8601String().substring(0, 10)}, $startTime, $endTime, $remind, $repeat',
+                              );
+
+                              // FIX 1: named arguments to match the view model
+                              final ok = await scheduleVm.createTask(
+                                category_id: category_id,
+                                title: title.text,
+                                date: date.toIso8601String().substring(0, 10),
+                                start: startTime,
+                                end: endTime,
+                                priority: priority,
+                              );
+
+                              if (!mounted) return;
+                              // FIX 2: message shown only after the server answers
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    ok
+                                        ? scheduleVm.successMessage.value
+                                        : scheduleVm.errorMessage.value,
+                                  ),
+                                ),
+                              );
+                            },
+                      style: FilledButton.styleFrom(backgroundColor: sky),
+                      child: scheduleVm.isLoading.value
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'CREATE TASK',
+                              style: TextStyle(letterSpacing: 1, fontSize: 12),
+                            ),
                     ),
                   ),
                 ),

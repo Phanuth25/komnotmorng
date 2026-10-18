@@ -18,5 +18,8 @@ export const LoginCon = async (req, res) => {
   if (!isMatch) {
     return res.status(401).json({ message: "Incorrect Password entered" });
   }
-  res.status(200).json({ message: "Login successful", data: userData.name });
+  res.status(200).json({
+    message: "Login successful",
+    data: [userData.name, userData.id],
+  });
 };

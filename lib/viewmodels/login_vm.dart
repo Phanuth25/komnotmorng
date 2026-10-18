@@ -11,6 +11,7 @@ class LoginViewModel extends GetxController {
   final errorMessage = ''.obs;
   final successMessage = ''.obs;
   final userName = ''.obs;
+  final RxInt user_id = 0.obs;
   final statusCode = ''.obs;
   Future<void> login(String email, String password) async {
     try {
@@ -28,10 +29,16 @@ class LoginViewModel extends GetxController {
         statusCode.value = response.statusCode.toString();
         debugPrint('User logged in successfully: ${response.data}');
         successMessage.value = response.data['message'] ?? 'Login successful';
+        final data = response.data['data']; // the array
+        userName.value = data[0] ?? '';
+        user_id.value = data[1] is int
+            ? data[1] as int
+            : int.tryParse(data[1].toString()) ?? 0;
+
         debugPrint('User name: ${userName.value}');
-        userName.value = response.data['data'] ?? '';
-        debugPrint('User name: ${userName.value}');
+        debugPrint('User id: ${user_id.value}');
         await LocalStorage.saveEmail(email);
+        await LocalStorage.saveId(user_id.value);
       }
     } on DioException catch (e) {
       statusCode.value = e.response?.statusCode.toString() ?? 'Unknown';
@@ -46,6 +53,7 @@ class LoginViewModel extends GetxController {
       isLoading.value = false;
     }
   }
+
   Future<void> logout() async {
     try {
       await LocalStorage.removeEmail();
