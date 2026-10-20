@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:komnotmorng2/models/schedules/schedules_model.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 
@@ -181,10 +182,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }),
                   const SizedBox(height: 24),
-                  const Text(
-                    '6 tasks for today',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
-                  ),
+                  Obx(() {
+                    final count =
+                        selectSche.schedules.where(isToday).length;
+                    return Text(
+                      '$count ${count == 1 ? 'task' : 'tasks'} for today',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 12),
 
                   // Stats card
@@ -353,4 +361,23 @@ Widget _chip(String text) => Container(
       ),
       child: Text(text, style: const TextStyle(fontWeight: FontWeight.w500)),
     );
+
+  // True if today falls between the schedule start day and end day.
+  // Uses startAt/endAt as-is: the API stores the times you typed (wall-clock)
+  // but labels them "Z", so toLocal() would wrongly add +7 hours.
+  bool isToday(Schedule s) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final start = DateTime(
+      s.startAt.year,
+      s.startAt.month,
+      s.startAt.day,
+    );
+    final end = DateTime(
+      s.endAt.year,
+      s.endAt.month,
+      s.endAt.day,
+    );
+    return !today.isBefore(start) && !today.isAfter(end);
+  }
 }
