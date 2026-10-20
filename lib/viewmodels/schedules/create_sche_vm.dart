@@ -13,6 +13,7 @@ class ScheduleVm extends GetxController {
 
   /// Returns true if the task was created (HTTP 201).
   Future<bool> createTask({
+    // ignore: non_constant_identifier_names
     required int? category_id,
     required String title,
     required String date, // e.g. 2026-10-18

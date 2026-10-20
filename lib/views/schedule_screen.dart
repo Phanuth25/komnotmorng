@@ -2,7 +2,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:komnotmorng2/viewmodels/categories/select_cate_vm.dart';
-import 'package:komnotmorng2/viewmodels/schedule_vm.dart';
+import 'package:komnotmorng2/viewmodels/schedules/create_sche_vm.dart';
 
 const sky = Color(0xFF29ABE2);
 
@@ -63,6 +63,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   bool remind = false, repeat = false;
 
   // Category: shows the name, uses the id (id -> name from the categories table)
+  // ignore: non_constant_identifier_names
   int? category_id;
   String? priority;
   final priorities = ['Low', 'Medium', 'High'];
@@ -337,7 +338,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               );
 
                               // FIX 1: named arguments to match the view model
-                              final ok = await scheduleVm.createTask(
+                              await scheduleVm.createTask(
                                 category_id: category_id,
                                 title: title.text,
                                 date: date.toIso8601String().substring(0, 10),
@@ -346,17 +347,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 priority: priority,
                               );
 
-                              if (!mounted) return;
-                              // FIX 2: message shown only after the server answers
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    ok
-                                        ? scheduleVm.successMessage.value
-                                        : scheduleVm.errorMessage.value,
-                                  ),
-                                ),
-                              );
+                              if (scheduleVm.errorMessage.isEmpty) {
+                                Get.snackbar(
+                                  'Success',
+                                  scheduleVm.successMessage.value,
+                                );
+                              } else {
+                                Get.snackbar(
+                                  'Error',
+                                  scheduleVm.errorMessage.value,
+                                );
+                              }
                             },
                       style: FilledButton.styleFrom(backgroundColor: sky),
                       child: scheduleVm.isLoading.value

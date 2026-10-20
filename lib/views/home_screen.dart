@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
+import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 
 const blue = Color(0xFF6C7CF0);
 const green = Color(0xFF9FE0B8);
@@ -29,9 +30,18 @@ class _HomeScreenState extends State<HomeScreen> {
     Task('Prepare daily meeting notes', '1–2 PM', grey),
   ];
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final SelectScheduleVM selectSche =
+      Get.find<SelectScheduleVM>(); // Access the LoginViewModel instance
   void openDrawer() {
     // Implement your drawer opening logic here
     _scaffoldKey.currentState?.openDrawer();
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    selectSche.fetchSchedules();
   }
 
   @override
@@ -43,12 +53,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final monthName = DateFormat('MMMM'); // "June"
     final text =
         'Today is ${dayName.format(now)}, ${dayNumber.format(now)} ${monthName.format(now)}';
-    final LoginViewModel loginViewModel = Get.find<LoginViewModel>(); // Access the LoginViewModel instance
-    final name =
-        loginViewModel.userName.value; // Access the userName from the ViewModel
-    debugPrint(
-      'User name in HomeScreen: $name',
-    ); // Debug print to check the value of name
+    final LoginViewModel loginViewModel =
+        Get.find<LoginViewModel>(); // Access the LoginViewModel instance
 
     return Scaffold(
       key: _scaffoldKey,
@@ -134,36 +140,62 @@ class _HomeScreenState extends State<HomeScreen> {
                   }),
                   const SizedBox(height: 24),
 
-                  // Tabs
-                  Row(
-                    children: [
-                      for (int i = 0; i < tabs.length; i++)
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => tab = i),
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 6),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: tab == i
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.4),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                tabs[i],
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: tab == i
-                                      ? Colors.black
-                                      : Colors.black38,
-                                ),
+                  // Tabs build it here
+                  Obx(() {
+                    if (selectSche.isLoading.value) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 40),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    if (selectSche.errorMessage.value.isNotEmpty) {
+                      return Column(
+                        children: [
+                          Text(
+                            selectSche.errorMessage.value,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: selectSche.fetchSchedules,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      );
+                    }
+                    return SizedBox(
+                      height: 50,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: selectSche.schedules.length,
+                        itemBuilder: (context, index) {
+                          final schedule = selectSche.schedules[index];
+
+                          return Container(
+                            margin: const EdgeInsets.only(right: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: grey),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              schedule.title,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black87,
                               ),
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
+                          );
+                        },
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 24),
                   const Text(
                     '6 tasks for today',
@@ -259,7 +291,9 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Get.toNamed('/ScheduleScreen'); // Navigate to ScheduleScreen using GetX
+          Get.toNamed(
+            '/ScheduleScreen',
+          ); // Navigate to ScheduleScreen using GetX
         },
         backgroundColor: blue,
         foregroundColor: Colors.white,

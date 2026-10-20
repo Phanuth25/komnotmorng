@@ -11,6 +11,7 @@ class LoginViewModel extends GetxController {
   final errorMessage = ''.obs;
   final successMessage = ''.obs;
   final userName = ''.obs;
+  // ignore: non_constant_identifier_names
   final RxInt user_id = 0.obs;
   final statusCode = ''.obs;
   Future<void> login(String email, String password) async {

@@ -6,6 +6,7 @@ class LocalStorage {
     await prefs.setString('useremail', email);
   }
 
+  // ignore: non_constant_identifier_names
   static Future<void> saveId(int user_id) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('user_id', user_id);
