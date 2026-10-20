@@ -163,40 +163,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       );
                     }
+                    // One "All tasks" chip first, then each category once.
+                    final categories = selectSche.schedules
+                        .map((s) => s.categoryName)
+                        .toSet()
+                        .toList();
                     return SizedBox(
                       height: 50,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
-                        itemCount: selectSche.schedules.length,
+                        itemCount: categories.length + 1,
                         itemBuilder: (context, index) {
-                          final schedule = selectSche.schedules[index];
-
-                          return Row(
-                            children: [
-                              _chip('All tasks'),
-                              Container(
-                                margin: const EdgeInsets.only(right: 10),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: grey),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  schedule.title,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
+                          if (index == 0) return _chip('All tasks');
+                          return _chip(categories[index - 1]);
                         },
                       ),
                     );

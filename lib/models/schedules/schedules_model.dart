@@ -37,6 +37,7 @@ class Schedule {
   final DateTime endAt;
   final String priority; // e.g. "high"
   final String status; // e.g. "scheduled"
+  final String categoryName; // e.g. "Study" (comes from the new view)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -49,6 +50,7 @@ class Schedule {
     required this.endAt,
     required this.priority,
     required this.status,
+    required this.categoryName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -63,6 +65,7 @@ class Schedule {
       endAt: DateTime.parse(json['end_at'] as String),
       priority: json['priority'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      categoryName: json['category_name'] as String? ?? '',
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -77,6 +80,7 @@ class Schedule {
     'end_at': endAt.toUtc().toIso8601String(),
     'priority': priority,
     'status': status,
+    'category_name': categoryName,
     'created_at': createdAt.toUtc().toIso8601String(),
     'updated_at': updatedAt.toUtc().toIso8601String(),
   };
@@ -91,5 +95,5 @@ class Schedule {
   @override
   String toString() =>
       'Schedule(id: $id, title: $title, startAt: $startAt, endAt: $endAt, '
-      'priority: $priority, status: $status)';
+      'priority: $priority, status: $status, categoryName: $categoryName)';
 }
