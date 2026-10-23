@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:komnotmorng2/data/local_storage.dart';
 import 'package:komnotmorng2/models/schedules/schedules_model.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
@@ -24,7 +25,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int tab = 0;
-  final tabs = ['All Tasks', 'Personal', 'Work'];
+  final userName = ''.obs;
   final tasks = [
     Task('Breakfast with Alice', '9:30–10:30 AM', green, true),
     Task('Prepare daily meeting notes', '11–11:30 AM', blue),
@@ -42,7 +43,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    selectSche.fetchSchedules();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      selectSche.fetchSchedules();
+     
+    });
+     LocalStorage.getName().then((n) => userName.value = n);
   }
 
   @override
@@ -130,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 4),
                   Obx(() {
                     // Use Obx to listen for changes in userName
-                    final name = loginViewModel.userName.value;
+                    final name = userName.value;
                     return Text(
                       'Morning, $name 👋',
                       style: TextStyle(
@@ -143,48 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Tabs build it here
                   Obx(() {
-                    if (selectSche.isLoading.value) {
-                      return const Padding(
-                        padding: EdgeInsets.only(top: 40),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    if (selectSche.errorMessage.value.isNotEmpty) {
-                      return Column(
-                        children: [
-                          Text(
-                            selectSche.errorMessage.value,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: selectSche.fetchSchedules,
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      );
-                    }
-                    // One "All tasks" chip first, then each category once.
-                    final categories = selectSche.schedules
-                        .map((s) => s.categoryName)
-                        .toSet()
-                        .toList();
-                    return SizedBox(
-                      height: 50,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: categories.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index == 0) return _chip('All tasks');
-                          return _chip(categories[index - 1]);
-                        },
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 24),
-                  Obx(() {
-                    final count =
-                        selectSche.schedules.where(isToday).length;
+                    final count = selectSche.schedules.where(isToday).length;
                     return Text(
                       '$count ${count == 1 ? 'task' : 'tasks'} for today',
                       style: const TextStyle(
@@ -350,17 +314,17 @@ class _HomeScreenState extends State<HomeScreen> {
   );
 
   // One rounded chip with centered text.
-Widget _chip(String text) => Container(
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: grey),
-      ),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w500)),
-    );
+  Widget _chip(String text) => Container(
+    margin: const EdgeInsets.only(right: 10),
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: grey),
+    ),
+    child: Text(text, style: const TextStyle(fontWeight: FontWeight.w500)),
+  );
 
   // True if today falls between the schedule start day and end day.
   // Uses startAt/endAt as-is: the API stores the times you typed (wall-clock)
@@ -368,16 +332,8 @@ Widget _chip(String text) => Container(
   bool isToday(Schedule s) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final start = DateTime(
-      s.startAt.year,
-      s.startAt.month,
-      s.startAt.day,
-    );
-    final end = DateTime(
-      s.endAt.year,
-      s.endAt.month,
-      s.endAt.day,
-    );
+    final start = DateTime(s.startAt.year, s.startAt.month, s.startAt.day);
+    final end = DateTime(s.endAt.year, s.endAt.month, s.endAt.day);
     return !today.isBefore(start) && !today.isAfter(end);
   }
 }

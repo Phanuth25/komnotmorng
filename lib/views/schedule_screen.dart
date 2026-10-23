@@ -312,7 +312,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                     ),
                                     content: Text(
                                       'It starts at ${start.text} and ends at ${end.text} on $nextDate.\n\n'
-                                      'Is that correct?',
+                                      'Is that correct?You may forget to switch the AM/PM ..',
                                     ),
                                     actions: [
                                       TextButton(

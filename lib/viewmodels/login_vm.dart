@@ -40,6 +40,7 @@ class LoginViewModel extends GetxController {
         debugPrint('User id: ${user_id.value}');
         await LocalStorage.saveEmail(email);
         await LocalStorage.saveId(user_id.value);
+        await LocalStorage.saveName(userName.value); // new
       }
     } on DioException catch (e) {
       statusCode.value = e.response?.statusCode.toString() ?? 'Unknown';
@@ -57,7 +58,7 @@ class LoginViewModel extends GetxController {
 
   Future<void> logout() async {
     try {
-      await LocalStorage.removeEmail();
+      await LocalStorage.removeEverything();
       debugPrint('User logged out successfully');
       Get.toNamed('/LoginScreen'); // Navigate to the login screen
     } catch (e) {

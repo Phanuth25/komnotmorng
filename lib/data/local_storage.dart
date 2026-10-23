@@ -22,8 +22,18 @@ class LocalStorage {
     return prefs.getString('useremail') ?? '';
   }
 
-  static Future<void> removeEmail() async {
+  static Future<void> removeEverything() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('useremail');
+    await prefs.clear();
+  }
+
+  static Future<void> saveName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', name);
+  }
+
+  static Future<String> getName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('username') ?? '';
   }
 }
