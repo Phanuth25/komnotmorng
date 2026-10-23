@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:komnotmorng2/constants/api_constant.dart';
 import 'package:komnotmorng2/data/local_storage.dart';
+import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 
 class ScheduleVm extends GetxController {
   final Dio dio = Dio();
@@ -10,6 +11,10 @@ class ScheduleVm extends GetxController {
   final errorMessage = ''.obs;
   final successMessage = ''.obs;
   final statusCode = ''.obs;
+  // Reuse the registered instance, or create one
+  final SelectScheduleVM selectVm = Get.isRegistered<SelectScheduleVM>()
+      ? Get.find<SelectScheduleVM>()
+      : Get.put(SelectScheduleVM());
 
   /// Returns true if the task was created (HTTP 201).
   Future<bool> createTask({
@@ -59,6 +64,7 @@ class ScheduleVm extends GetxController {
       if (response.statusCode == 201) {
         successMessage.value =
             response.data['message'] ?? 'Task created successfully';
+        selectVm.fetchSchedules();
         return true;
       }
       return false;
