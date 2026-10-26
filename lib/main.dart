@@ -5,6 +5,7 @@ import 'package:komnotmorng2/viewmodels/categories/select_cate_vm.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
 import 'package:komnotmorng2/viewmodels/register_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/create_sche_vm.dart';
+import 'package:komnotmorng2/viewmodels/schedules/delete_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/update_sche_vm.dart';
 import 'package:komnotmorng2/views/home_screen.dart';
@@ -25,6 +26,7 @@ void main() {
   // Register the ScheduleVm for dependency injection
   Get.put(SelectScheduleVM());
   Get.put(UpdateScheduleVM());
+  Get.put(DeleteScheduleVM());
 }
 
 class MyApp extends StatelessWidget {

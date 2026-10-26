@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:komnotmorng2/data/local_storage.dart';
 import 'package:komnotmorng2/models/schedules/schedules_model.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
+import 'package:komnotmorng2/viewmodels/schedules/delete_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/update_sche_vm.dart';
 
@@ -23,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
   final selectSche = Get.find<SelectScheduleVM>();
   final updateSche = Get.find<UpdateScheduleVM>();
+  final deleteSche = Get.find<DeleteScheduleVM>();
 
   final userName = ''.obs;
   final nowTime = DateTime.now().obs; // updates every minute
@@ -113,6 +115,30 @@ class _HomeScreenState extends State<HomeScreen> {
       isDone ? 'scheduled' : 'completed',
     );
     if (!ok) Get.snackbar('Save failed', 'Please try again');
+  }
+
+  // Tap the trash icon: ask first, delete only if the user presses Delete
+  Future<void> askToDelete(Schedule s) async {
+    final delete = await Get.dialog<bool>(
+      AlertDialog(
+        title: const Text('Delete this task?'),
+        content: Text(s.title),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Get.back(result: true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (delete != true) return;
+
+    final ok = await deleteSche.deleteSchedule(s.id);
+    if (!ok) Get.snackbar('Delete failed', 'Please try again');
   }
 
   // ---------- UI ----------
@@ -272,6 +298,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                   ],
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => askToDelete(s),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.black38,
                                 ),
                               ),
                               IconButton(
