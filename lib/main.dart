@@ -12,6 +12,7 @@ import 'package:komnotmorng2/views/home_screen.dart';
 import 'package:komnotmorng2/views/login_screen.dart';
 import 'package:komnotmorng2/views/register_screen.dart';
 import 'package:komnotmorng2/views/schedule_screen.dart';
+import 'package:komnotmorng2/views/search_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -63,6 +64,7 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/LoginScreen', page: () => const LoginScreen()),
         GetPage(name: '/RegisterScreen', page: () => const RegisterScreen()),
         GetPage(name: '/ScheduleScreen', page: () => const ScheduleScreen()),
+        GetPage(name: '/SearchScreen', page: () => const SearchScreen()),
       ],
       home: const SplashScreen(),
     );

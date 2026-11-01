@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:komnotmorng2/data/local_storage.dart';
 import 'package:komnotmorng2/models/schedules/schedules_model.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
+import 'package:komnotmorng2/views/history_screen.dart';
+import 'package:komnotmorng2/views/search_screen.dart';
 import 'package:komnotmorng2/viewmodels/schedules/delete_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/update_sche_vm.dart';
@@ -150,15 +152,126 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       key: scaffoldKey,
       drawer: Drawer(
-        child: ListView(
+        backgroundColor: const Color(0xFFF7F8FC),
+        child: Column(
           children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.blue),
-              child: Text('Drawer Header'),
+            // Header: gradient, avatar, name and today's progress
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(
+                20,
+                MediaQuery.of(context).padding.top + 24,
+                20,
+                24,
+              ),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [blue, Color(0xFF9AA5F5)],
+                ),
+                borderRadius: BorderRadius.only(
+                  bottomRight: Radius.circular(32),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.white,
+                    child: CircleAvatar(
+                      radius: 29,
+                      backgroundColor: Colors.brown,
+                      child: Icon(Icons.person, size: 32, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Obx(
+                    () => Text(
+                      userName.value,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Obx(() {
+                    final total = todays.length;
+                    final done = count('done');
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$done of $total tasks done today',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: total == 0 ? 0 : done / total,
+                            minHeight: 6,
+                            color: Colors.white,
+                            backgroundColor: Colors.white24,
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
             ),
-            ListTile(
-              title: const Text('log out'),
-              onTap: () => Get.find<LoginViewModel>().logout(),
+            const SizedBox(height: 12),
+
+            // Menu
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  drawerItem(
+                    Icons.home_rounded,
+                    'Home',
+                    selected: true,
+                    onTap: Get.back,
+                  ),
+                  drawerItem(
+                    Icons.search,
+                    'Search',
+                    onTap: () {
+                      Get.back(); // close the drawer first
+                      Get.to(() => const SearchScreen());
+                    },
+                  ),
+                  drawerItem(
+                    Icons.history,
+                    'History',
+                    onTap: () {
+                      Get.back(); // close the drawer first
+                      Get.to(() => const HistoryScreen());
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            // Log out at the bottom
+            const Divider(height: 1),
+            SafeArea(
+              top: false,
+              child: ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text(
+                  'Log out',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () => Get.find<LoginViewModel>().logout(),
+              ),
             ),
           ],
         ),
@@ -180,9 +293,13 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const CircleAvatar(
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.search, color: Colors.black87),
+                  InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => Get.to(() => const SearchScreen()),
+                    child: const CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.search, color: Colors.black87),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   InkWell(
@@ -353,6 +470,24 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget drawerItem(
+    IconData icon,
+    String label, {
+    bool selected = false,
+    VoidCallback? onTap,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+    child: ListTile(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      selected: selected,
+      selectedTileColor: blue.withAlpha(30),
+      selectedColor: blue,
+      leading: Icon(icon),
+      title: Text(label),
+      onTap: onTap,
+    ),
+  );
 
   Widget card(Widget child) => Container(
     padding: const EdgeInsets.all(16),
