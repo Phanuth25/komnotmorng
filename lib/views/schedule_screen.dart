@@ -111,8 +111,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   @override
   void initState() {
-    selectCateVm.fetchCategories();
     super.initState();
+    if (selectCateVm.categories.isEmpty) selectCateVm.fetchCategories();
   }
 
   @override

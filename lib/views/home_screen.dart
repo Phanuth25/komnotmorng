@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:komnotmorng2/data/local_storage.dart';
 import 'package:komnotmorng2/models/schedules/schedules_model.dart';
+import 'package:komnotmorng2/viewmodels/categories/select_cate_vm.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
 import 'package:komnotmorng2/views/history_screen.dart';
 import 'package:komnotmorng2/views/search_screen.dart';
@@ -40,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       selectSche.fetchSchedules();
+       Get.find<SelectCateVM>().fetchCategories(); // NEW
     });
     LocalStorage.getName().then((n) => userName.value = n);
   }
@@ -67,6 +69,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final start = DateTime(s.startAt.year, s.startAt.month, s.startAt.day);
     final end = DateTime(s.endAt.year, s.endAt.month, s.endAt.day);
     return !today.isBefore(start) && !today.isAfter(end);
+  }
+
+    // Morning / Afternoon / Evening, based on the current hour
+  String greeting() {
+    final hour = nowTime.value.hour; // reading nowTime keeps it updated
+    if (hour >= 5 && hour < 12) return 'Morning';
+    if (hour >= 12 && hour < 17) return 'Afternoon';
+    return 'Evening';
   }
 
   // 'done', 'doing', 'todo' or 'missed'
@@ -321,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 4),
               Obx(
                 () => Text(
-                  'Morning, ${userName.value} 👋',
+                  '${greeting()}, ${userName.value} 👋',
                   style: const TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w500,

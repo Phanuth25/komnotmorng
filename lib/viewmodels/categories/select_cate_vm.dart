@@ -24,7 +24,6 @@ class SelectCateVM extends GetxController {
         final result = CategoryResponse.fromJson(response.data);
         successMessage.value = result.message;
         categories.addAll(result.categories);
-        debugPrint(categories.string);
       }
     } on DioException catch (e) {
       errorMessage.value =
