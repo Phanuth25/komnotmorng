@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:komnotmorng2/viewmodels/register_vm.dart';
+import 'package:komnotmorng2/views/widgets/auth_layout.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -10,36 +11,33 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  static const _blue = Color(0xFF1D4ED8); // same blue as login
-  static const _lightBlue = Color(0xFFDCE7FF);
+  final formKey = GlobalKey<FormState>();
+  final name = TextEditingController();
+  final email = TextEditingController();
+  final password = TextEditingController();
+  final confirm = TextEditingController();
+  final RegisterViewModel registerVm = Get.find<RegisterViewModel>();
 
-  final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  final _confirm = TextEditingController();
-  bool _hidePassword = true;
-  bool _hideConfirm = true;
-  final RegisterViewModel registerController = Get.find<RegisterViewModel>();
   @override
   void dispose() {
-    _name.dispose();
-    _email.dispose();
-    _password.dispose();
-    _confirm.dispose();
+    name.dispose();
+    email.dispose();
+    password.dispose();
+    confirm.dispose();
     super.dispose();
   }
 
-  // ---- Validators (run only when "Create account" is pressed) ----
+  // ---------- Validators (run when "Create account" is pressed) ----------
   // Rules follow the users table: name VARCHAR(100), email VARCHAR(255).
-  String? _validateName(String? value) {
+
+  String? validateName(String? value) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'Please enter your name';
     if (v.length > 100) return 'Name must be 100 characters or less';
     return null;
   }
 
-  String? _validateEmail(String? value) {
+  String? validateEmail(String? value) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'Please enter your email';
     if (v.length > 255) return 'Email must be 255 characters or less';
@@ -49,206 +47,126 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
-  String? _validatePassword(String? value) {
+  String? validatePassword(String? value) {
     final v = value ?? '';
     if (v.isEmpty) return 'Please enter a password';
     if (v.length < 6) return 'Password must be at least 6 characters';
     return null;
   }
 
-  String? _validateConfirm(String? value) {
+  String? validateConfirm(String? value) {
     if (value == null || value.isEmpty) return 'Please confirm your password';
-    if (value != _password.text) return 'Passwords do not match';
+    if (value != password.text) return 'Passwords do not match';
     return null;
   }
 
-  InputDecoration _field(String label) {
-    OutlineInputBorder border(Color color, [double width = 1]) =>
-        OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: color, width: width),
-        );
+  // ---------- Action ----------
 
-    return InputDecoration(
-      labelText: label,
-      floatingLabelStyle: const TextStyle(color: _blue),
-      enabledBorder: border(Colors.grey.shade400),
-      focusedBorder: border(_blue, 2),
-      errorBorder: border(Colors.red.shade600),
-      focusedErrorBorder: border(Colors.red.shade600, 2),
-    );
-  }
-
-  Widget _eye(bool hidden, VoidCallback onTap) {
-    return IconButton(
-      icon: Icon(
-        hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-      ),
-      onPressed: onTap,
-    );
-  }
-
-  void _register() async {
+  Future<void> register() async {
     FocusScope.of(context).unfocus();
-    if (_formKey.currentState!.validate()) {
-      // the server should hash it into users.password_hash.
-      // role ('user'), status ('active') and timestamps use DB defaults.
-      debugPrint('Register: ${_name.text.trim()} / ${_email.text.trim()}');
-      await registerController.register(
-        _name.text.trim(),
-        _email.text.trim(),
-        _password.text,
+    if (!formKey.currentState!.validate()) return;
+
+    final scheme = Theme.of(context).colorScheme;
+    // the server hashes the password into users.password_hash
+    await registerVm.register(
+      name.text.trim(),
+      email.text.trim(),
+      password.text,
+    );
+
+    final code = registerVm.statusCode.value;
+    final error = registerVm.errorMessage.value;
+
+    if (code == '201') {
+      Get.snackbar(
+        'Success',
+        registerVm.successMessage.value,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: scheme.primaryContainer,
+        colorText: scheme.onPrimaryContainer,
       );
-      if (registerController.statusCode.value == '201') {
-        Get.snackbar(
-          'Success',
-          registerController.successMessage.value,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.shade400,
-          colorText: Colors.white,
-        );
-        Get.offNamed('/LoginScreen');
-      } else if (registerController.statusCode.value == '409') {
-        Get.snackbar(
-          'Email Already Exists',
-          registerController.errorMessage.value,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade400,
-          colorText: Colors.white,
-        );
-      }
-      else if (registerController.statusCode.value != '201' && registerController.statusCode.value != '409')  {
-        Get.snackbar(
-          'Error',
-          registerController.errorMessage.value,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade400,
-          colorText: Colors.white,
-        );
-      }
+      Get.offNamed('/LoginScreen');
+    } else if (code == '409') {
+      Get.snackbar(
+        'Email Already Exists',
+        error.isEmpty ? 'This email is already registered.' : error,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: scheme.errorContainer,
+        colorText: scheme.onErrorContainer,
+      );
+    } else {
+      Get.snackbar(
+        'Error',
+        error.isEmpty ? 'Something went wrong. Please try again.' : error,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: scheme.errorContainer,
+        colorText: scheme.onErrorContainer,
+      );
     }
   }
 
+  // ---------- UI ----------
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -90,
-            right: -70,
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: const BoxDecoration(
-                color: _lightBlue,
-                shape: BoxShape.circle,
+    return AuthLayout(
+      title: 'Create\nyour\naccount',
+      children: [
+        Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: name,
+                keyboardType: TextInputType.name,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                validator: validateName,
+                decoration: authDecoration(context, 'Full name'),
               ),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 80, 28, 24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Create\nyour\naccount',
-                      style: TextStyle(
-                        fontSize: 44,
-                        height: 1.05,
-                        fontWeight: FontWeight.w800,
-                        color: _blue,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    TextFormField(
-                      controller: _name,
-                      keyboardType: TextInputType.name,
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      validator: _validateName,
-                      decoration: _field('Full name'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      validator: _validateEmail,
-                      decoration: _field('Email'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _password,
-                      obscureText: _hidePassword,
-                      textInputAction: TextInputAction.next,
-                      validator: _validatePassword,
-                      decoration: _field('Password').copyWith(
-                        suffixIcon: _eye(
-                          _hidePassword,
-                          () => setState(() => _hidePassword = !_hidePassword),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _confirm,
-                      obscureText: _hideConfirm,
-                      textInputAction: TextInputAction.done,
-                      validator: _validateConfirm,
-                      onFieldSubmitted: (_) => _register(),
-                      decoration: _field('Confirm password').copyWith(
-                        suffixIcon: _eye(
-                          _hideConfirm,
-                          () => setState(() => _hideConfirm = !_hideConfirm),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 58,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _blue,
-                          shape: const StadiumBorder(),
-                        ),
-                        onPressed: _register,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Create account',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward_rounded, size: 20),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => Navigator.maybePop(context),
-                        style: TextButton.styleFrom(foregroundColor: _blue),
-                        child: const Text('Already have an account? Sign in'),
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: email,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                validator: validateEmail,
+                decoration: authDecoration(context, 'Email'),
+              ),
+              const SizedBox(height: 16),
+              PasswordField(
+                controller: password,
+                label: 'Password',
+                validator: validatePassword,
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 16),
+              PasswordField(
+                controller: confirm,
+                label: 'Confirm password',
+                validator: validateConfirm,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => register(),
+              ),
+              const SizedBox(height: 28),
+              Obx(
+                () => AuthButton(
+                  label: 'Create account',
+                  onPressed: register,
+                  loading: registerVm.isLoading.value,
                 ),
               ),
-            ),
+              const SizedBox(height: 20),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.maybePop(context),
+                  child: const Text('Already have an account? Sign in'),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

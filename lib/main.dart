@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:komnotmorng2/core/task_colors.dart';
 import 'package:komnotmorng2/features/splash/splash_screen.dart';
 import 'package:komnotmorng2/viewmodels/categories/select_cate_vm.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
@@ -12,7 +13,6 @@ import 'package:komnotmorng2/views/home_screen.dart';
 import 'package:komnotmorng2/views/login_screen.dart';
 import 'package:komnotmorng2/views/register_screen.dart';
 import 'package:komnotmorng2/views/schedule_screen.dart';
-import 'package:komnotmorng2/views/search_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,30 +33,28 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
+  static const seed = Color(0xFF6C7CF0);
+
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
+      // Light and dark themes, following the phone's setting
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: seed),
+        extensions: const [TaskColors.light],
       ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: seed,
+          brightness: Brightness.dark,
+        ),
+        extensions: const [TaskColors.dark],
+      ),
+      themeMode: ThemeMode.system,
+      // Use each platform's own page transition (Cupertino on iOS, Material on Android)
+      defaultTransition: Transition.native,
       initialRoute: '/SplashScreen',
       getPages: [
         GetPage(name: '/SplashScreen', page: () => const SplashScreen()),
@@ -64,7 +62,6 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/LoginScreen', page: () => const LoginScreen()),
         GetPage(name: '/RegisterScreen', page: () => const RegisterScreen()),
         GetPage(name: '/ScheduleScreen', page: () => const ScheduleScreen()),
-        GetPage(name: '/SearchScreen', page: () => const SearchScreen()),
       ],
       home: const SplashScreen(),
     );

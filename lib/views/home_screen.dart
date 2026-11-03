@@ -3,19 +3,56 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:komnotmorng2/core/task_colors.dart';
+
 import 'package:komnotmorng2/data/local_storage.dart';
 import 'package:komnotmorng2/models/schedules/schedules_model.dart';
-import 'package:komnotmorng2/viewmodels/categories/select_cate_vm.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
-import 'package:komnotmorng2/views/history_screen.dart';
-import 'package:komnotmorng2/views/search_screen.dart';
 import 'package:komnotmorng2/viewmodels/schedules/delete_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/update_sche_vm.dart';
+import 'package:komnotmorng2/views/history_screen.dart';
+import 'package:komnotmorng2/views/search_screen.dart';
 
-const blue = Color(0xFF6C7CF0);
-const green = Color(0xFF9FE0B8);
-const grey = Color(0xFFE3E4EA);
+// ============================================================
+// Small helpers and data types
+// ============================================================
+
+/// Animation length that becomes 0 when the phone's "reduce motion" is on.
+Duration _motion(BuildContext context, int ms) =>
+    MediaQuery.disableAnimationsOf(context)
+    ? Duration.zero
+    : Duration(milliseconds: ms);
+
+String _tasks(int n) => '$n ${n == 1 ? 'task' : 'tasks'}';
+
+String _greeting(int hour) {
+  if (hour >= 5 && hour < 12) return 'Morning';
+  if (hour >= 12 && hour < 17) return 'Afternoon';
+  return 'Evening';
+}
+
+enum _State { done, doing, todo, missed }
+
+class _Item {
+  const _Item(this.schedule, this.state);
+  final Schedule schedule;
+  final _State state;
+}
+
+/// Today's tasks and the counts, calculated once per rebuild.
+class _Summary {
+  const _Summary(this.items, this.done, this.doing, this.todo);
+  final List<_Item> items;
+  final int done;
+  final int doing;
+  final int todo;
+  int get total => items.length;
+}
+
+// ============================================================
+// Screen
+// ============================================================
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final userName = ''.obs;
   final nowTime = DateTime.now().obs; // updates every minute
+  final removing = <int>{}.obs; // tasks fading out while being deleted
   Timer? timer;
 
   @override
@@ -40,8 +78,8 @@ class _HomeScreenState extends State<HomeScreen> {
       nowTime.value = DateTime.now();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      selectSche.schedules.clear(); // forget a previous user's list
       selectSche.fetchSchedules();
-       Get.find<SelectCateVM>().fetchCategories(); // NEW
     });
     LocalStorage.getName().then((n) => userName.value = n);
   }
@@ -53,11 +91,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ---------- Data ----------
-
-  // Today's schedules, without cancelled ones
-  List<Schedule> get todays => selectSche.schedules
-      .where((s) => isToday(s) && s.status != 'cancelled')
-      .toList();
 
   // The API labels wall-clock times as "Z", so read them as local time
   DateTime wallClock(DateTime d) =>
@@ -71,43 +104,44 @@ class _HomeScreenState extends State<HomeScreen> {
     return !today.isBefore(start) && !today.isAfter(end);
   }
 
-    // Morning / Afternoon / Evening, based on the current hour
-  String greeting() {
-    final hour = nowTime.value.hour; // reading nowTime keeps it updated
-    if (hour >= 5 && hour < 12) return 'Morning';
-    if (hour >= 12 && hour < 17) return 'Afternoon';
-    return 'Evening';
+  _State stateOf(Schedule s, DateTime now) {
+    if (s.status == 'completed') return _State.done;
+    if (now.isBefore(wallClock(s.startAt))) return _State.todo;
+    if (now.isBefore(wallClock(s.endAt))) return _State.doing;
+    return _State.missed;
   }
 
-  // 'done', 'doing', 'todo' or 'missed'
-  String stateOf(Schedule s) {
+  /// Today's tasks (cancelled hidden) with their state and the counts.
+  _Summary summary() {
     final now = nowTime.value;
-    if (s.status == 'completed') return 'done';
-    if (now.isBefore(wallClock(s.startAt))) return 'todo';
-    if (now.isBefore(wallClock(s.endAt))) return 'doing';
-    return 'missed';
+    final items = <_Item>[];
+    for (final s in selectSche.schedules) {
+      if (isToday(s) && s.status != 'cancelled') {
+        items.add(_Item(s, stateOf(s, now)));
+      }
+    }
+    int count(_State st) => items.where((i) => i.state == st).length;
+    return _Summary(
+      items,
+      count(_State.done),
+      count(_State.doing),
+      count(_State.todo),
+    );
   }
-
-  int count(String state) => todays.where((s) => stateOf(s) == state).length;
-
-  Color colorOf(String state) {
-    if (state == 'done') return green;
-    if (state == 'doing') return blue;
-    return grey;
-  }
-
-  String tasks(int n) => '$n ${n == 1 ? 'task' : 'tasks'}';
 
   // ---------- Actions ----------
 
-  // Tap the check: ask first, save only if the user presses Save
-  Future<void> askToSave(Schedule s) async {
-    final isDone = s.status == 'completed';
-
-    final save = await Get.dialog<bool>(
+  Future<bool> confirm({
+    required String title,
+    required String body,
+    required String yes,
+    bool danger = false,
+  }) async {
+    final scheme = Theme.of(context).colorScheme;
+    final result = await Get.dialog<bool>(
       AlertDialog(
-        title: Text(isDone ? 'Mark as not done?' : 'Mark as completed?'),
-        content: Text(s.title),
+        title: Text(title),
+        content: Text(body, maxLines: 3, overflow: TextOverflow.ellipsis),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
@@ -115,12 +149,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           TextButton(
             onPressed: () => Get.back(result: true),
-            child: const Text('Save'),
+            style: danger
+                ? TextButton.styleFrom(foregroundColor: scheme.error)
+                : null,
+            child: Text(yes),
           ),
         ],
       ),
     );
-    if (save != true) return;
+    return result == true;
+  }
+
+  // Check icon: ask first, save only if the user presses Save
+  Future<void> toggleDone(Schedule s) async {
+    final isDone = s.status == 'completed';
+    final yes = await confirm(
+      title: isDone ? 'Mark as not done?' : 'Mark as completed?',
+      body: s.title,
+      yes: 'Save',
+    );
+    if (!yes) return;
 
     final ok = await updateSche.updateStatus(
       s.id,
@@ -129,410 +177,811 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!ok) Get.snackbar('Save failed', 'Please try again');
   }
 
-  // Tap the trash icon: ask first, delete only if the user presses Delete
-  Future<void> askToDelete(Schedule s) async {
-    final delete = await Get.dialog<bool>(
-      AlertDialog(
-        title: const Text('Delete this task?'),
-        content: Text(s.title),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () => Get.back(result: true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+  // Trash icon: ask first, fade the task out, then delete it
+  Future<void> deleteTask(Schedule s) async {
+    final yes = await confirm(
+      title: 'Delete this task?',
+      body: s.title,
+      yes: 'Delete',
+      danger: true,
     );
-    if (delete != true) return;
+    if (!yes || !mounted) return;
+
+    removing.add(s.id); // starts the fade-out
+    await Future.delayed(_motion(context, 200));
 
     final ok = await deleteSche.deleteSchedule(s.id);
-    if (!ok) Get.snackbar('Delete failed', 'Please try again');
+    if (!ok) {
+      removing.remove(s.id); // bring it back
+      Get.snackbar('Delete failed', 'Please try again');
+    }
+  }
+
+  void closeDrawerThen(VoidCallback go) {
+    scaffoldKey.currentState?.closeDrawer();
+    go();
   }
 
   // ---------- UI ----------
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat('EEEE, d MMMM').format(DateTime.now());
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       key: scaffoldKey,
-      drawer: Drawer(
-        backgroundColor: const Color(0xFFF7F8FC),
-        child: Column(
+      extendBody: true,
+      drawer: _HomeDrawer(
+        userName: userName,
+        summary: summary,
+        onClose: () => scaffoldKey.currentState?.closeDrawer(),
+        onSearch: () =>
+            closeDrawerThen(() => Get.to(() => const SearchScreen())),
+        onHistory: () =>
+            closeDrawerThen(() => Get.to(() => const HistoryScreen())),
+        onLogout: () => Get.find<LoginViewModel>().logout(),
+      ),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.center,
+            colors: [scheme.primaryContainer, scheme.surface],
+          ),
+        ),
+        child: SafeArea(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: _Header(
+                    userName: userName,
+                    nowTime: nowTime,
+                    onSearch: () => Get.to(() => const SearchScreen()),
+                    onMenu: () => scaffoldKey.currentState?.openDrawer(),
+                  ),
+                ),
+              ),
+              Obx(() => body(context)),
+              const SliverToBoxAdapter(child: SizedBox(height: 48)),
+            ],
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Create task',
+        onPressed: () => Get.toNamed('/ScheduleScreen'),
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add, size: 30),
+      ),
+      bottomNavigationBar: const _BottomNav(),
+    );
+  }
+
+  // Everything below the header. Runs inside Obx, so it rebuilds when the
+  // schedules, the loading state, or the minute clock change.
+  Widget body(BuildContext context) {
+    final data = summary();
+    final hasItems = data.items.isNotEmpty;
+    final error = selectSche.errorMessage.value;
+
+    // loading / error / empty are swapped with a fade
+    Widget placeholder = const SizedBox.shrink(key: ValueKey('content'));
+    if (!hasItems) {
+      if (selectSche.isLoading.value) {
+        placeholder = const _LoadingView(key: ValueKey('loading'));
+      } else if (error.isNotEmpty) {
+        placeholder = _ErrorView(
+          key: const ValueKey('error'),
+          message: error,
+          onRetry: selectSche.fetchSchedules,
+        );
+      } else {
+        placeholder = const _EmptyView(key: ValueKey('empty'));
+      }
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          if (hasItems)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 24, bottom: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${_tasks(data.total)} for today',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    _StatsCard(summary: data),
+                  ],
+                ),
+              ),
+            ),
+          SliverToBoxAdapter(
+            child: AnimatedSwitcher(
+              duration: _motion(context, 200),
+              child: placeholder,
+            ),
+          ),
+          SliverList.builder(
+            itemCount: data.items.length,
+            // keeps each tile attached to its task when the list changes
+            findChildIndexCallback: (key) {
+              if (key is! ValueKey<int>) return null;
+              final i = data.items.indexWhere(
+                (e) => e.schedule.id == key.value,
+              );
+              return i < 0 ? null : i;
+            },
+            itemBuilder: (_, i) {
+              final item = data.items[i];
+              final s = item.schedule;
+              // its own Obx, because itemBuilder runs outside the parent Obx
+              return Obx(
+                () => _TaskTile(
+                  item: item,
+                  index: i,
+                  removing: removing.contains(s.id),
+                  onToggle: () => toggleDone(s),
+                  onDelete: () => deleteTask(s),
+                ),
+                key: ValueKey(s.id),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// Small widgets
+// ============================================================
+
+class _Card extends StatelessWidget {
+  const _Card({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Search + menu buttons, date and greeting.
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.userName,
+    required this.nowTime,
+    required this.onSearch,
+    required this.onMenu,
+  });
+  final RxString userName;
+  final Rx<DateTime> nowTime;
+  final VoidCallback onSearch;
+  final VoidCallback onMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            // Header: gradient, avatar, name and today's progress
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(
-                20,
-                MediaQuery.of(context).padding.top + 24,
-                20,
-                24,
-              ),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [blue, Color(0xFF9AA5F5)],
-                ),
-                borderRadius: BorderRadius.only(
-                  bottomRight: Radius.circular(32),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Colors.white,
-                    child: CircleAvatar(
-                      radius: 29,
-                      backgroundColor: Colors.brown,
-                      child: Icon(Icons.person, size: 32, color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Obx(
-                    () => Text(
-                      userName.value,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Obx(() {
-                    final total = todays.length;
-                    final done = count('done');
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '$done of $total tasks done today',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.white70,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: total == 0 ? 0 : done / total,
-                            minHeight: 6,
-                            color: Colors.white,
-                            backgroundColor: Colors.white24,
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                ],
+            Material(
+              color: scheme.surfaceContainerLowest,
+              shape: const CircleBorder(),
+              child: IconButton(
+                onPressed: onSearch,
+                tooltip: 'Search',
+                icon: const Icon(Icons.search),
               ),
             ),
-            const SizedBox(height: 12),
-
-            // Menu
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  drawerItem(
-                    Icons.home_rounded,
-                    'Home',
-                    selected: true,
-                    onTap: Get.back,
-                  ),
-                  drawerItem(
-                    Icons.search,
-                    'Search',
-                    onTap: () {
-                      Get.back(); // close the drawer first
-                      Get.to(() => const SearchScreen());
-                    },
-                  ),
-                  drawerItem(
-                    Icons.history,
-                    'History',
-                    onTap: () {
-                      Get.back(); // close the drawer first
-                      Get.to(() => const HistoryScreen());
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // Log out at the bottom
-            const Divider(height: 1),
-            SafeArea(
-              top: false,
-              child: ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text(
-                  'Log out',
-                  style: TextStyle(color: Colors.red),
-                ),
-                onTap: () => Get.find<LoginViewModel>().logout(),
+            const SizedBox(width: 10),
+            IconButton(
+              onPressed: onMenu,
+              tooltip: 'Open menu',
+              padding: EdgeInsets.zero,
+              icon: CircleAvatar(
+                backgroundColor: scheme.secondaryContainer,
+                child: Icon(Icons.person, color: scheme.onSecondaryContainer),
               ),
             ),
           ],
         ),
-      ),
-      extendBody: true,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.center,
-            colors: [Color(0xFFD9DEFF), Color(0xFFF7F8FC)],
-          ),
-        ),
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        const SizedBox(height: 24),
+        Obx(() {
+          final now = nowTime.value;
+          final name = userName.value;
+          final hello = _greeting(now.hour);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Search + avatar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => Get.to(() => const SearchScreen()),
-                    child: const CircleAvatar(
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.search, color: Colors.black87),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  InkWell(
-                    onTap: () => scaffoldKey.currentState?.openDrawer(),
-                    child: const CircleAvatar(
-                      backgroundColor: Colors.brown,
-                      child: Icon(Icons.person, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Date + greeting
               Text(
-                'Today is $date',
-                style: const TextStyle(color: Colors.black54),
+                'Today is ${DateFormat('EEEE, d MMMM').format(now)}',
+                style: text.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 4),
-              Obx(
-                () => Text(
-                  '${greeting()}, ${userName.value} 👋',
-                  style: const TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w500,
-                  ),
+              Text(
+                name.isEmpty ? '$hello 👋' : '$hello, $name 👋',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: text.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 24),
-              Obx(
-                () => Text(
-                  '${tasks(todays.length)} for today',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+}
 
-              // Stats card
-              Obx(() {
-                final total = todays.length;
-                final done = count('done');
-                final doing = count('doing');
-                return card(
-                  Row(
+class _StatsCard extends StatelessWidget {
+  const _StatsCard({required this.summary});
+  final _Summary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<TaskColors>()!;
+    final total = summary.total;
+    final doneShare = total == 0 ? 0.0 : summary.done / total;
+    final activeShare = total == 0
+        ? 0.0
+        : (summary.done + summary.doing) / total;
+
+    return _Card(
+      child: Semantics(
+        label:
+            '${summary.done} completed, ${summary.doing} in progress, '
+            '${summary.todo} left to do',
+        child: ExcludeSemantics(
+          child: Row(
+            children: [
+              RepaintBoundary(
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      SizedBox(
-                        width: 52,
-                        height: 52,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            CircularProgressIndicator(
-                              value: total == 0 ? 0 : (done + doing) / total,
-                              strokeWidth: 7,
-                              color: blue,
-                              backgroundColor: grey,
-                            ),
-                            CircularProgressIndicator(
-                              value: total == 0 ? 0 : done / total,
-                              strokeWidth: 7,
-                              color: green,
-                            ),
-                          ],
-                        ),
+                      _Ring(
+                        value: activeShare,
+                        color: colors.doing,
+                        track: colors.todo,
                       ),
-                      const SizedBox(width: 20),
-                      stat(green, tasks(done), 'completed'),
-                      const Spacer(),
-                      stat(blue, tasks(doing), 'in progress'),
-                      const Spacer(),
-                      stat(grey, tasks(count('todo')), 'left to do'),
+                      _Ring(value: doneShare, color: colors.done),
                     ],
                   ),
-                );
-              }),
-              const SizedBox(height: 24),
-
-              // Task list
-              Obx(
-                () => Column(
-                  children: [
-                    for (final s in todays)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: card(
-                          Row(
-                            children: [
-                              Container(
-                                width: 4,
-                                height: 36,
-                                color: colorOf(stateOf(s)),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      s.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${DateFormat('h:mm a').format(s.startAt)} – '
-                                      '${DateFormat('h:mm a').format(s.endAt)}',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.black45,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => askToDelete(s),
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.black38,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => askToSave(s),
-                                icon: Icon(
-                                  stateOf(s) == 'done'
-                                      ? Icons.check_circle
-                                      : Icons.radio_button_unchecked,
-                                  color: blue,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _Stat(
+                  color: colors.done,
+                  count: summary.done,
+                  label: 'completed',
+                ),
+              ),
+              Expanded(
+                child: _Stat(
+                  color: colors.doing,
+                  count: summary.doing,
+                  label: 'in progress',
+                ),
+              ),
+              Expanded(
+                child: _Stat(
+                  color: colors.todo,
+                  count: summary.todo,
+                  label: 'left to do',
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
 
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Get.toNamed('/ScheduleScreen'),
-        backgroundColor: blue,
-        foregroundColor: Colors.white,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add, size: 30),
+/// One ring of the donut. The value animates when it changes.
+class _Ring extends StatelessWidget {
+  const _Ring({required this.value, required this.color, this.track});
+  final double value;
+  final Color color;
+  final Color? track;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: value),
+      duration: _motion(context, 280),
+      curve: Curves.easeOutCubic,
+      builder: (_, v, _) => CircularProgressIndicator(
+        value: v,
+        strokeWidth: 7,
+        color: color,
+        backgroundColor: track,
       ),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.color, required this.count, required this.label});
+  final Color color;
+  final int count;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            nav(Icons.home_rounded, 'Home', true),
-            nav(Icons.calendar_today_outlined, 'Calendar'),
-            const SizedBox(width: 48),
-            nav(Icons.auto_awesome_outlined, 'Assistant'),
-            nav(Icons.bar_chart_rounded, 'Statistics'),
+            CircleAvatar(radius: 4, backgroundColor: color),
+            const SizedBox(width: 4),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _tasks(count),
+                  style: text.labelMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
           ],
+        ),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+class _TaskTile extends StatelessWidget {
+  const _TaskTile({
+    required this.item,
+    required this.index,
+    required this.removing,
+    required this.onToggle,
+    required this.onDelete,
+  });
+  final _Item item;
+  final int index; // used for the small entrance stagger
+  final bool removing;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final colors = Theme.of(context).extension<TaskColors>()!;
+
+    final s = item.schedule;
+    final done = item.state == _State.done;
+    final barColor = switch (item.state) {
+      _State.done => colors.done,
+      _State.doing => colors.doing,
+      _ => colors.todo, // todo and missed
+    };
+    final fmt = DateFormat('h:mm a');
+    final time = '${fmt.format(s.startAt)} – ${fmt.format(s.endAt)}';
+    final quick = _motion(context, 150);
+
+    final card = _Card(
+      child: Row(
+        children: [
+          Expanded(
+            child: AnimatedContainer(
+              duration: quick,
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.only(left: 12),
+              decoration: BoxDecoration(
+                border: Border(left: BorderSide(color: barColor, width: 4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    s.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    time,
+                    style: text.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            tooltip: 'Delete "${s.title}"',
+            icon: Icon(Icons.delete_outline, color: scheme.onSurfaceVariant),
+          ),
+          IconButton(
+            onPressed: onToggle,
+            tooltip: done
+                ? 'Mark "${s.title}" as not done'
+                : 'Mark "${s.title}" as completed',
+            icon: AnimatedSwitcher(
+              duration: quick,
+              child: Icon(
+                done ? Icons.check_circle : Icons.radio_button_unchecked,
+                key: ValueKey(done),
+                color: scheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // Entrance: fade + slide up (later tiles take a little longer)
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: _motion(context, 200 + 40 * (index > 5 ? 5 : index)),
+      curve: Curves.easeOut,
+      builder: (_, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
+      ),
+      // Removal: fade out and collapse
+      child: ClipRect(
+        child: AnimatedSize(
+          duration: _motion(context, 200),
+          curve: Curves.easeOut,
+          child: Align(
+            alignment: Alignment.topCenter,
+            heightFactor: removing ? 0.0 : 1.0,
+            child: AnimatedOpacity(
+              duration: _motion(context, 200),
+              opacity: removing ? 0 : 1,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: card,
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget drawerItem(
-    IconData icon,
-    String label, {
-    bool selected = false,
-    VoidCallback? onTap,
-  }) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-    child: ListTile(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      selected: selected,
-      selectedTileColor: blue.withAlpha(30),
-      selectedColor: blue,
-      leading: Icon(icon),
-      title: Text(label),
-      onTap: onTap,
-    ),
-  );
+// ---------- Loading / empty / error ----------
 
-  Widget card(Widget child) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: child,
-  );
+class _LoadingView extends StatelessWidget {
+  const _LoadingView({super.key});
 
-  Widget stat(Color color, String count, String label) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 64),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _EmptyView extends StatelessWidget {
+  const _EmptyView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
         children: [
-          CircleAvatar(radius: 4, backgroundColor: color),
-          const SizedBox(width: 4),
+          Icon(
+            Icons.event_available_outlined,
+            size: 48,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: 12),
+          Text('No tasks today', style: text.titleMedium),
+          const SizedBox(height: 4),
           Text(
-            count,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            'Tap + to add one',
+            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
       ),
-      Text(label, style: const TextStyle(fontSize: 10, color: Colors.black45)),
-    ],
-  );
+    );
+  }
+}
 
-  Widget nav(IconData icon, String label, [bool active = false]) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, color: active ? blue : Colors.black45),
-      Text(
-        label,
-        style: TextStyle(fontSize: 11, color: active ? blue : Colors.black45),
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({super.key, required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        children: [
+          Icon(Icons.cloud_off_outlined, size: 48, color: scheme.error),
+          const SizedBox(height: 12),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          FilledButton.tonal(onPressed: onRetry, child: const Text('Retry')),
+        ],
       ),
-    ],
-  );
+    );
+  }
+}
+
+// ============================================================
+// Drawer and bottom bar
+// ============================================================
+
+class _HomeDrawer extends StatelessWidget {
+  const _HomeDrawer({
+    required this.userName,
+    required this.summary,
+    required this.onClose,
+    required this.onSearch,
+    required this.onHistory,
+    required this.onLogout,
+  });
+  final RxString userName;
+  final _Summary Function() summary;
+  final VoidCallback onClose;
+  final VoidCallback onSearch;
+  final VoidCallback onHistory;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Drawer(
+      child: Column(
+        children: [
+          // Header: avatar, name and today's progress
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              MediaQuery.paddingOf(context).top + 24,
+              20,
+              24,
+            ),
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              borderRadius: const BorderRadius.only(
+                bottomRight: Radius.circular(32),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 32,
+                  backgroundColor: scheme.onPrimary,
+                  child: CircleAvatar(
+                    radius: 29,
+                    backgroundColor: scheme.secondaryContainer,
+                    child: Icon(
+                      Icons.person,
+                      size: 32,
+                      color: scheme.onSecondaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Obx(
+                  () => Text(
+                    userName.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Obx(() {
+                  final s = summary();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${s.done} of ${s.total} tasks done today',
+                        style: text.bodySmall?.copyWith(
+                          color: scheme.onPrimary.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: s.total == 0 ? 0 : s.done / s.total,
+                          minHeight: 6,
+                          color: scheme.onPrimary,
+                          backgroundColor: scheme.onPrimary.withValues(
+                            alpha: 0.25,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Menu
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _DrawerItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  selected: true,
+                  onTap: onClose,
+                ),
+                _DrawerItem(
+                  icon: Icons.search,
+                  label: 'Search',
+                  onTap: onSearch,
+                ),
+                _DrawerItem(
+                  icon: Icons.history,
+                  label: 'History',
+                  onTap: onHistory,
+                ),
+              ],
+            ),
+          ),
+
+          // Log out at the bottom
+          const Divider(height: 1),
+          SafeArea(
+            top: false,
+            child: ListTile(
+              leading: Icon(Icons.logout, color: scheme.error),
+              title: Text('Log out', style: TextStyle(color: scheme.error)),
+              onTap: onLogout,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  const _DrawerItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        selected: selected,
+        selectedTileColor: scheme.primary.withValues(alpha: 0.12),
+        selectedColor: scheme.primary,
+        leading: Icon(icon),
+        title: Text(label),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _BottomNav extends StatelessWidget {
+  const _BottomNav();
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomAppBar(
+      color: Theme.of(context).colorScheme.surfaceContainerLowest,
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 8,
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _NavItem(Icons.home_rounded, 'Home', active: true),
+          _NavItem(Icons.calendar_today_outlined, 'Calendar'),
+          SizedBox(width: 48), // space for the + button
+          _NavItem(Icons.auto_awesome_outlined, 'Assistant'),
+          _NavItem(Icons.bar_chart_rounded, 'Statistics'),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem(this.icon, this.label, {this.active = false});
+  final IconData icon;
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = active ? scheme.primary : scheme.onSurfaceVariant;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color),
+        Text(
+          label,
+          maxLines: 1,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
+        ),
+      ],
+    );
+  }
 }

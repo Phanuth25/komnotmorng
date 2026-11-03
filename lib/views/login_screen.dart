@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
+import 'package:komnotmorng2/views/widgets/auth_layout.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,210 +11,139 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const _green = Color(
-    0xFF1D4ED8,
-  ); // main blue (change to your logo color)
-  static const _mint = Color(0xFFDCE7FF); // light blue circle
-
-  final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _hidden = true;
-  bool _remember = true;
-  final LoginViewModel _loginViewModel = Get.put(LoginViewModel());
+  final formKey = GlobalKey<FormState>();
+  final email = TextEditingController();
+  final password = TextEditingController();
+  final remember = true.obs;
+  final signedIn = false.obs; // keeps the button locked until Home opens
+  final LoginViewModel loginVm = Get.isRegistered<LoginViewModel>()
+      ? Get.find<LoginViewModel>()
+      : Get.put(LoginViewModel());
 
   @override
   void dispose() {
-    _email.dispose();
-    _password.dispose();
+    email.dispose();
+    password.dispose();
     super.dispose();
   }
 
-  // ---- Validators ----
-  String? _validateEmail(String? value) {
+  // ---------- Validators ----------
+
+  String? validateEmail(String? value) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'Please enter your email';
-    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    if (!emailRegex.hasMatch(v)) return 'Enter a valid email address';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
+      return 'Enter a valid email address';
+    }
     return null;
   }
 
-  String? _validatePassword(String? value) {
+  String? validatePassword(String? value) {
     final v = value ?? '';
     if (v.isEmpty) return 'Please enter your password';
     if (v.length < 6) return 'Password must be at least 6 characters';
     return null;
   }
 
-  InputDecoration _field(String label) {
-    OutlineInputBorder border(Color color, [double width = 1]) =>
-        OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: color, width: width),
-        );
+  // ---------- Action ----------
 
-    return InputDecoration(
-      labelText: label,
-      floatingLabelStyle: const TextStyle(color: _green),
-      enabledBorder: border(Colors.grey.shade400),
-      focusedBorder: border(_green, 2),
-      errorBorder: border(Colors.red.shade600),
-      focusedErrorBorder: border(Colors.red.shade600, 2),
-    );
-  }
-
-  void _signIn() async {
+  Future<void> signIn() async {
     FocusScope.of(context).unfocus();
-    if (_formKey.currentState!.validate()) {
-      debugPrint('Sign in: ${_email.text.trim()}');
-      await _loginViewModel.login(_email.text.trim(), _password.text);
-      if (_loginViewModel.statusCode.value == '200') {
-        Get.snackbar(
-          'Login Successful',
-          _loginViewModel.successMessage.value,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.shade100,
-          colorText: Colors.green.shade900,
-        );
-        Future.delayed(const Duration(seconds: 1), () {
-          Get.toNamed('/HomeScreen');
-        });
-      } else {
-        Get.snackbar(
-          'Login Failed',
-          _loginViewModel.errorMessage.value,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade100,
-          colorText: Colors.red.shade900,
-        );
-      }
+    if (!formKey.currentState!.validate()) return;
+
+    final scheme = Theme.of(context).colorScheme;
+    await loginVm.login(email.text.trim(), password.text);
+
+    if (loginVm.statusCode.value == '200') {
+      signedIn.value = true;
+      Get.snackbar(
+        'Login Successful',
+        loginVm.successMessage.value,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: scheme.primaryContainer,
+        colorText: scheme.onPrimaryContainer,
+      );
+      Future.delayed(const Duration(seconds: 1), () {
+        Get.toNamed('/HomeScreen');
+      });
+    } else {
+      Get.snackbar(
+        'Login Failed',
+        loginVm.errorMessage.value,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: scheme.errorContainer,
+        colorText: scheme.onErrorContainer,
+      );
     }
   }
 
+  // ---------- UI ----------
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -90,
-            right: -70,
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: const BoxDecoration(
-                color: _mint,
-                shape: BoxShape.circle,
+    return AuthLayout(
+      title: 'Sign in\nto your\naccount',
+      children: [
+        Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: email,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                validator: validateEmail,
+                decoration: authDecoration(context, 'Email'),
               ),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 80, 28, 24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Sign in\nto your\naccount',
-                      style: TextStyle(
-                        fontSize: 44,
-                        height: 1.05,
-                        fontWeight: FontWeight.w800,
-                        color: _green,
+              const SizedBox(height: 16),
+              PasswordField(
+                controller: password,
+                label: 'Password',
+                validator: validatePassword,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => signIn(),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Obx(
+                      () => CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        dense: true,
+                        title: const Text('Remember me'),
+                        value: remember.value,
+                        onChanged: (v) => remember.value = v ?? false,
                       ),
                     ),
-                    const SizedBox(height: 40),
-                    TextFormField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-
-                      validator: _validateEmail,
-                      decoration: _field('Email'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _password,
-                      obscureText: _hidden,
-                      textInputAction: TextInputAction.done,
-
-                      validator: _validatePassword,
-                      onFieldSubmitted: (_) => _signIn(),
-                      decoration: _field('Password').copyWith(
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _hidden
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                          ),
-                          onPressed: () => setState(() => _hidden = !_hidden),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _remember,
-                          activeColor: _green,
-                          onChanged: (v) =>
-                              setState(() => _remember = v ?? false),
-                        ),
-                        const Text('Remember me'),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () {},
-                          style: TextButton.styleFrom(foregroundColor: _green),
-                          child: const Text('Forgot password?'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 58,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _green,
-                          shape: const StadiumBorder(),
-                        ),
-                        onPressed: _signIn,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Sign in',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward_rounded, size: 20),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          Get.toNamed('/RegisterScreen');
-                        },
-                        style: TextButton.styleFrom(foregroundColor: _green),
-                        child: const Text('Create a new account'),
-                      ),
-                    ),
-                  ],
+                  ),
+                  TextButton(
+                    onPressed: () {},
+                    child: const Text('Forgot password?'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Obx(
+                () => AuthButton(
+                  label: 'Sign in',
+                  onPressed: signIn,
+                  loading: loginVm.isLoading.value || signedIn.value,
                 ),
               ),
-            ),
+              const SizedBox(height: 28),
+              Center(
+                child: TextButton(
+                  onPressed: () => Get.toNamed('/RegisterScreen'),
+                  child: const Text('Create a new account'),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
