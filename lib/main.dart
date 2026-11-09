@@ -13,7 +13,6 @@ import 'package:komnotmorng2/views/home_screen.dart';
 import 'package:komnotmorng2/views/login_screen.dart';
 import 'package:komnotmorng2/views/register_screen.dart';
 import 'package:komnotmorng2/views/schedule_screen.dart';
-//hello
 
 void main() {
   runApp(const MyApp());
