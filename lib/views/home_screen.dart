@@ -4,13 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:komnotmorng2/core/task_colors.dart';
-
+import 'package:komnotmorng2/core/theme_controller.dart';
 import 'package:komnotmorng2/data/local_storage.dart';
 import 'package:komnotmorng2/models/schedules/schedules_model.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/delete_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/update_sche_vm.dart';
+import 'package:komnotmorng2/views/calender_screen.dart';
 import 'package:komnotmorng2/views/history_screen.dart';
 import 'package:komnotmorng2/views/search_screen.dart';
 
@@ -261,7 +262,9 @@ class _HomeScreenState extends State<HomeScreen> {
         shape: const CircleBorder(),
         child: const Icon(Icons.add, size: 30),
       ),
-      bottomNavigationBar: const _BottomNav(),
+      bottomNavigationBar: _BottomNav(
+        onCalendar: () => Get.to(() => const CalendarScreen()),
+      ),
     );
   }
 
@@ -788,6 +791,8 @@ class _HomeDrawer extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
+    final themeCtrl = Get.find<ThemeController>();
+
     return Drawer(
       child: Column(
         children: [
@@ -891,6 +896,47 @@ class _HomeDrawer extends StatelessWidget {
             ),
           ),
 
+          // Light / dark / auto
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Appearance',
+                  style: text.labelMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Obx(
+                  () => SegmentedButton<ThemeMode>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        icon: Icon(Icons.brightness_auto),
+                        tooltip: 'Follow the phone',
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        icon: Icon(Icons.light_mode_outlined),
+                        tooltip: 'Light',
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        icon: Icon(Icons.dark_mode_outlined),
+                        tooltip: 'Dark',
+                      ),
+                    ],
+                    selected: {themeCtrl.mode.value},
+                    onSelectionChanged: (s) => themeCtrl.setMode(s.first),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // Log out at the bottom
           const Divider(height: 1),
           SafeArea(
@@ -939,7 +985,8 @@ class _DrawerItem extends StatelessWidget {
 }
 
 class _BottomNav extends StatelessWidget {
-  const _BottomNav();
+  const _BottomNav({required this.onCalendar});
+  final VoidCallback onCalendar;
 
   @override
   Widget build(BuildContext context) {
@@ -947,14 +994,18 @@ class _BottomNav extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainerLowest,
       shape: const CircularNotchedRectangle(),
       notchMargin: 8,
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _NavItem(Icons.home_rounded, 'Home', active: true),
-          _NavItem(Icons.calendar_today_outlined, 'Calendar'),
-          SizedBox(width: 48), // space for the + button
-          _NavItem(Icons.auto_awesome_outlined, 'Assistant'),
-          _NavItem(Icons.bar_chart_rounded, 'Statistics'),
+          const _NavItem(Icons.home_rounded, 'Home', active: true),
+          _NavItem(
+            Icons.calendar_today_outlined,
+            'Calendar',
+            onTap: onCalendar,
+          ),
+          const SizedBox(width: 48), // space for the + button
+          const _NavItem(Icons.auto_awesome_outlined, 'Assistant'),
+          const _NavItem(Icons.bar_chart_rounded, 'Statistics'),
         ],
       ),
     );
@@ -962,26 +1013,44 @@ class _BottomNav extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  const _NavItem(this.icon, this.label, {this.active = false});
+  const _NavItem(this.icon, this.label, {this.active = false, this.onTap});
   final IconData icon;
   final String label;
   final bool active;
+  final VoidCallback? onTap; // null = not available yet
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = active ? scheme.primary : scheme.onSurfaceVariant;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color),
-        Text(
-          label,
-          maxLines: 1,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
-        ),
-      ],
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color),
+          Text(
+            label,
+            maxLines: 1,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: color),
+          ),
+        ],
+      ),
+    );
+    if (onTap == null) return content;
+
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: content,
+      ),
     );
   }
 }

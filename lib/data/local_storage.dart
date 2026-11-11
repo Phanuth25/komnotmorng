@@ -24,7 +24,9 @@ class LocalStorage {
 
   static Future<void> removeEverything() async {
     final prefs = await SharedPreferences.getInstance();
+    final theme = prefs.getString('themeMode'); // not part of the user's data
     await prefs.clear();
+    if (theme != null) await prefs.setString('themeMode', theme);
   }
 
   static Future<void> saveName(String name) async {
@@ -35,5 +37,16 @@ class LocalStorage {
   static Future<String> getName() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('username') ?? '';
+  }
+
+  // 'system', 'light' or 'dark'
+  static Future<void> saveThemeMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('themeMode', mode);
+  }
+
+  static Future<String> getThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('themeMode') ?? 'system';
   }
 }
