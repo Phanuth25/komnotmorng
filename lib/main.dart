@@ -15,7 +15,6 @@ import 'package:komnotmorng2/views/register_screen.dart';
 import 'package:komnotmorng2/views/schedule_screen.dart';
 //test
 //testagain
-//testagain2
 void main() {
   runApp(const MyApp());
   Get.put(
