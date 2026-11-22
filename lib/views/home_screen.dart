@@ -11,7 +11,6 @@ import 'package:komnotmorng2/viewmodels/login_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/delete_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/update_sche_vm.dart';
-import 'package:komnotmorng2/views/calender_screen.dart';
 import 'package:komnotmorng2/views/history_screen.dart';
 import 'package:komnotmorng2/views/search_screen.dart';
 
@@ -99,9 +98,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool isToday(Schedule s) {
     final n = DateTime.now();
-    final today = DateTime(n.year, n.month, n.day);
-    final start = DateTime(s.startAt.year, s.startAt.month, s.startAt.day);
-    final end = DateTime(s.endAt.year, s.endAt.month, s.endAt.day);
+    final today = DateTime(n.year, n.month, n.day).toLocal();
+    final start = DateTime(
+      s.startAt.year,
+      s.startAt.month,
+      s.startAt.day,
+    ).toLocal();
+    final end = DateTime(s.endAt.year, s.endAt.month, s.endAt.day).toLocal();
     return !today.isBefore(start) && !today.isAfter(end);
   }
 
@@ -262,9 +265,10 @@ class _HomeScreenState extends State<HomeScreen> {
         shape: const CircleBorder(),
         child: const Icon(Icons.add, size: 30),
       ),
-      bottomNavigationBar: _BottomNav(
-        onCalendar: () => Get.to(() => const CalendarScreen()),
-      ),
+      // bottomNavigationBar: _BottomNav(
+      //   onCalendar: () => Get.to(() => const CalendarScreen()),
+      //   onStatistics: () => Get.to(() => const StatisticsScreen()),
+      // ),
     );
   }
 
@@ -673,7 +677,10 @@ class _TaskTile extends StatelessWidget {
       curve: Curves.easeOut,
       builder: (_, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - t)),
+          child: child,
+        ),
       ),
       // Removal: fade out and collapse
       child: ClipRect(
@@ -985,8 +992,9 @@ class _DrawerItem extends StatelessWidget {
 }
 
 class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.onCalendar});
+  const _BottomNav({required this.onCalendar, required this.onStatistics});
   final VoidCallback onCalendar;
+  final VoidCallback onStatistics;
 
   @override
   Widget build(BuildContext context) {
@@ -1005,7 +1013,7 @@ class _BottomNav extends StatelessWidget {
           ),
           const SizedBox(width: 48), // space for the + button
           const _NavItem(Icons.auto_awesome_outlined, 'Assistant'),
-          const _NavItem(Icons.bar_chart_rounded, 'Statistics'),
+          _NavItem(Icons.bar_chart_rounded, 'Statistics', onTap: onStatistics),
         ],
       ),
     );

@@ -50,16 +50,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // ---------- Data ----------
 
   // The day a schedule ended (time removed)
-  DateTime endDay(Schedule s) =>
-      DateTime(s.endAt.year, s.endAt.month, s.endAt.day);
+  DateTime endDay(Schedule s) {
+    final e = s.endAt.toLocal();
+    return DateTime(e.year, e.month, e.day);
+  }
 
   // History = tasks that ended before today, newest first, without cancelled
   List<Schedule> history() {
-    final n = DateTime.now();
-    final today = DateTime(n.year, n.month, n.day);
+    final now = DateTime.now();
     final list = [
       for (final s in vm.schedules)
-        if (s.status != 'cancelled' && endDay(s).isBefore(today)) s,
+        if (s.status != 'cancelled' &&
+            (s.status == 'completed' || s.endAt.toLocal().isBefore(now)))
+          s,
     ];
     list.sort((a, b) => b.endAt.compareTo(a.endAt));
     return list;
@@ -341,7 +344,11 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: _Stat(count: missed, label: 'missed', color: colors.todo),
+                child: _Stat(
+                  count: missed,
+                  label: 'missed',
+                  color: colors.todo,
+                ),
               ),
             ],
           ),

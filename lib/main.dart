@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:komnotmorng2/core/task_colors.dart';
+import 'package:komnotmorng2/core/theme_controller.dart';
 import 'package:komnotmorng2/features/splash/splash_screen.dart';
 import 'package:komnotmorng2/viewmodels/categories/select_cate_vm.dart';
 import 'package:komnotmorng2/viewmodels/login_vm.dart';
@@ -13,48 +14,52 @@ import 'package:komnotmorng2/views/home_screen.dart';
 import 'package:komnotmorng2/views/login_screen.dart';
 import 'package:komnotmorng2/views/register_screen.dart';
 import 'package:komnotmorng2/views/schedule_screen.dart';
-//test
-//testagain
-void main() {
-  runApp(const MyApp());
-  Get.put(
-    RegisterViewModel(),
-  ); // Register the RegisterViewModel for dependency injection
-  Get.put(
-    LoginViewModel(),
-  ); // Register the LoginViewModel for dependency injection
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Load the saved theme and register its controller
+  final savedTheme = await ThemeController.load();
+  Get.put(ThemeController(savedTheme));
+
+  _initControllers();
+  runApp(MyApp(themeMode: savedTheme));
+}
+
+void _initControllers() {
+  Get.put(RegisterViewModel());
+  Get.put(LoginViewModel());
   Get.put(ScheduleVm());
   Get.put(SelectCateVM());
-  // Register the ScheduleVm for dependency injection
   Get.put(SelectScheduleVM());
   Get.put(UpdateScheduleVM());
   Get.put(DeleteScheduleVM());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.themeMode});
 
-  static const seed = Color(0xFF6C7CF0);
+  final ThemeMode themeMode;
+
+  static const _seed = Color(0xFF6C7CF0);
+
+  ThemeData _theme(Brightness brightness, TaskColors colors) => ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: _seed,
+          brightness: brightness,
+        ),
+        extensions: [colors],
+      );
 
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
-      // Light and dark themes, following the phone's setting
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: seed),
-        extensions: const [TaskColors.light],
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seed,
-          brightness: Brightness.dark,
-        ),
-        extensions: const [TaskColors.dark],
-      ),
-      themeMode: ThemeMode.system,
-      // Use each platform's own page transition (Cupertino on iOS, Material on Android)
+      title: 'Komnotmorng',
+      theme: _theme(Brightness.light, TaskColors.light),
+      darkTheme: _theme(Brightness.dark, TaskColors.dark),
+      themeMode: themeMode, // saved choice (auto / light / dark)
       defaultTransition: Transition.native,
       initialRoute: '/SplashScreen',
       getPages: [
@@ -64,7 +69,6 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/RegisterScreen', page: () => const RegisterScreen()),
         GetPage(name: '/ScheduleScreen', page: () => const ScheduleScreen()),
       ],
-      home: const SplashScreen(),
     );
   }
 }
