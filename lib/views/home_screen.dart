@@ -11,9 +11,10 @@ import 'package:komnotmorng2/viewmodels/login_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/delete_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/select_sche_vm.dart';
 import 'package:komnotmorng2/viewmodels/schedules/update_sche_vm.dart';
+import 'package:komnotmorng2/views/calender_screen.dart';
 import 'package:komnotmorng2/views/history_screen.dart';
 import 'package:komnotmorng2/views/search_screen.dart';
-
+import 'package:komnotmorng2/views/weekly_progress_screen.dart';
 // ============================================================
 // Small helpers and data types
 // ============================================================
@@ -265,10 +266,10 @@ class _HomeScreenState extends State<HomeScreen> {
         shape: const CircleBorder(),
         child: const Icon(Icons.add, size: 30),
       ),
-      // bottomNavigationBar: _BottomNav(
-      //   onCalendar: () => Get.to(() => const CalendarScreen()),
-      //   onStatistics: () => Get.to(() => const StatisticsScreen()),
-      // ),
+      bottomNavigationBar: _BottomNav(
+        onCalendar: () => Get.to(() => const CalendarScreen()),
+        onStatistics: () => Get.to(() => const WeeklyProgressScreen()),
+      ),
     );
   }
 
